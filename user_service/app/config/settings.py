@@ -40,6 +40,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # phone number related packages
+    "phonenumber_field",
+    # apps
     "app.apps.users",
     "app.apps.authentication",
     "app.apps.profiles",
@@ -125,3 +128,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+# default region for number (phonenumber_field -> package)
+PHONENUMBER_DEFAULT_REGION = "IN"
+
+# User model configuration
+AUTH_USER_MODEL = "users.User"
