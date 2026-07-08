@@ -40,8 +40,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # phone number related packages
+
+    # Third Party Apps
+    "rest_framework",
     "phonenumber_field",
+    
     # apps
     "app.apps.users",
     "app.apps.authentication",
