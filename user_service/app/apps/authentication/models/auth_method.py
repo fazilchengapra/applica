@@ -11,13 +11,17 @@ class AuthMethod(models.Model):
     but never two rows with the same provider (enforced by unique_together).
     """
 
+    EMAIL = "email"
+    MOBILE = "mobile"
+    GOOGLE = "google"
+
     PROVIDER_CHOICES = [
-        ("email", "Email & Password"),
-        ("mobile", "Mobile & OTP"),
-        ("google", "Google OAuth")
+        (EMAIL, "Email & Password"),
+        (MOBILE, "Mobile & OTP"),
+        (GOOGLE, "Google OAuth"),
     ]
 
-    user_id = models.ForeignKey(
+    user = models.ForeignKey(
         User, on_delete=models.CASCADE
     )  # references user.User.id
 
