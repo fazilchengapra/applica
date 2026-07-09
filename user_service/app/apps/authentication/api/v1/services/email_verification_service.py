@@ -7,7 +7,7 @@ from app.apps.authentication.models.verification_token import VerificationToken
 from app.apps.authentication.constants.verification_type import EMAIL_TYPE
 
 # exceptions
-from ..exceptions import (
+from ..exceptions.email_exceptions import (
     EmailAlreadyVerifiedError,
     EmailVerificationInvalidError,
 )

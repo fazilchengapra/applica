@@ -7,7 +7,7 @@ from ..serializers.verify_email_serializer import VerifyEmailSerializer
 from ..services.email_verification_service import verify_email
 
 # exception
-from ..exceptions import EmailVerificationInvalidError
+from ..exceptions.email_exceptions import EmailVerificationInvalidError
 
 class VerifyEmailView(APIView):
 
