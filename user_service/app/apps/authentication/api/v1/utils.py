@@ -10,7 +10,8 @@ def generate_raw_token() -> str:
 def hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
-def set_auth_cookies(response, *, access_token: str, refresh_token: str):
+
+def set_access_cookie(response, *, access_token: str):
     response.set_cookie(
         key=settings.ACCESS_TOKEN_COOKIE,
         value=access_token,
@@ -18,9 +19,12 @@ def set_auth_cookies(response, *, access_token: str, refresh_token: str):
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.COOKIE_DOMAIN,
-        max_age=15 * 60,  # match ACCESS_TOKEN_LIFETIME
+        max_age=15 * 60,
         path="/",
     )
+
+
+def set_refresh_cookie(response, *, refresh_token: str):
     response.set_cookie(
         key=settings.REFRESH_TOKEN_COOKIE,
         value=refresh_token,
@@ -28,9 +32,15 @@ def set_auth_cookies(response, *, access_token: str, refresh_token: str):
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.COOKIE_DOMAIN,
-        max_age=7 * 24 * 60 * 60,  # match REFRESH_TOKEN_LIFETIME
-        path="/api/v1/auth/",  # scope refresh cookie to the auth endpoints only
+        max_age=7 * 24 * 60 * 60,
+        path="/api/v1/auth/",
     )
+
+
+def set_auth_cookies(response, *, access_token: str, refresh_token: str):
+    """Used only at login, where both tokens are freshly issued."""
+    set_access_cookie(response, access_token=access_token)
+    set_refresh_cookie(response, refresh_token=refresh_token)
 
 
 def clear_auth_cookies(response):

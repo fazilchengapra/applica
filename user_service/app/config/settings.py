@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third Party Apps
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "phonenumber_field",
     # apps
     "app.apps.users",
@@ -89,6 +91,12 @@ COOKIE_SAMESITE = (
     "Lax"  # "None" if frontend is on a different domain (requires Secure=True)
 )
 COOKIE_DOMAIN = None  # for subdomain
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "app.apps.authentication.auth_class.CookieJWTAuthentication",
+    ),
+}
 
 
 # Password validation
