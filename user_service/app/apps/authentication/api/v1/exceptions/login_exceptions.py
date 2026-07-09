@@ -8,3 +8,6 @@ class AccountInactiveError(Exception):
 
 class LoginLockedError(Exception):
     pass
+
+class EmailInActiveError(Exception):
+    pass

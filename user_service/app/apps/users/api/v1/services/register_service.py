@@ -50,8 +50,12 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
 
     auth_method = AuthMethod.objects.create(
         user=user,
-        provider=AuthMethod.EMAIL,
-        is_verified=False,
+        provider=AuthMethod.EMAIL
+    )
+
+    AuthMethod.objects.create(
+        user=user,
+        provider = AuthMethod.MOBILE
     )
 
     raw_token = _generate_raw_token()

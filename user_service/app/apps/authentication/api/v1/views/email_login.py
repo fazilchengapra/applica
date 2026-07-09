@@ -6,9 +6,14 @@ from ..serializers.email_login_serializer import EmailLoginSerializer
 
 from ..services.email_login_service import login_user
 
-from ..exceptions.login_exceptions import AccountInactiveError, InvalidCredentialsError
+from ..exceptions.login_exceptions import (
+    AccountInactiveError,
+    InvalidCredentialsError,
+    EmailInActiveError,
+)
 
 from ..utils import set_auth_cookies
+
 
 class EmailLoginView(APIView):
     def post(self, request):
@@ -35,6 +40,11 @@ class EmailLoginView(APIView):
             return Response(
                 {"detail": str(ex)},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+        except EmailInActiveError as ex:
+            return Response(
+                {"detail": str(ex)},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         user = res["user"]

@@ -1,6 +1,5 @@
 from django.urls import path
 
-
 from .views.email_verification import VerifyEmailView
 from .views.email_login import EmailLoginView
 from .views.toekn_refresh import CookieTokenRefreshView
