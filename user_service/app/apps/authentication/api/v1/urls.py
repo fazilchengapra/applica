@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import UserAuthView
+from .views.email_verification import VerifyEmailView
 
 
 urlpatterns = [
-    path('login/', UserAuthView.as_view(), name='user_login'),
+    path('email-verify/', VerifyEmailView.as_view(), name='user_login'),
 ]

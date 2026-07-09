@@ -27,15 +27,6 @@ class AuthMethod(models.Model):
 
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
 
-    # ---- email & password ----
-    email = models.EmailField(null=True, blank=True)
-    password = models.CharField(
-        max_length=255, null=True, blank=True, help_text="hashed"
-    )
-
-    # ---- mobile & OTP ----
-    phone_number = models.CharField(max_length=20, null=True, blank=True)
-
     # ---- OAuth (google) ----
     provider_uid = models.CharField(
         max_length=255,
@@ -62,8 +53,7 @@ class AuthMethod(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["user_id"]),
-            models.Index(fields=["phone_number"]),
+            models.Index(fields=["user_id"])
         ]
 
     def __str__(self):

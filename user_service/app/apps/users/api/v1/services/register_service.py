@@ -51,8 +51,6 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
     auth_method = AuthMethod.objects.create(
         user=user,
         provider=AuthMethod.EMAIL,
-        email=email,
-        password=user.password,  # already hashed by create_user
         is_verified=False,
     )
 
@@ -64,5 +62,5 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
         token_hash=_hash_token(raw_token),
         expires_at=timezone.now() + timedelta(minutes=VERIFICATION_TOKEN_TTL_MINUTES),
     )
-
+    print(f'token hash is {raw_token}')
     return user
