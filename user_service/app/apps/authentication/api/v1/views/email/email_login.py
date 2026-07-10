@@ -2,17 +2,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from ..serializers.email_login_serializer import EmailLoginSerializer
+from ...serializers.email_login_serializer import EmailLoginSerializer
 
-from ..services.email_login_service import login_user
+from ...services.email.email_login_service import login_user
 
-from ..exceptions.login_exceptions import (
+from ...exceptions import (
     AccountInactiveError,
     InvalidCredentialsError,
     EmailInActiveError,
 )
 
-from ..utils import set_auth_cookies
+from ...utils import set_auth_cookies
 
 
 class EmailLoginView(APIView):

@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..exceptions.login_exceptions import AccountInactiveError, InvalidCredentialsError, EmailInActiveError
+from ...exceptions import AccountInactiveError, InvalidCredentialsError, EmailInActiveError
 from app.apps.authentication.models import AuthMethod
 from app.apps.authentication.constants import verification_type
 

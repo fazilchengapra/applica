@@ -7,12 +7,12 @@ from app.apps.authentication.models.verification_token import VerificationToken
 from app.apps.authentication.constants.verification_type import EMAIL_TYPE
 
 # exceptions
-from ..exceptions.email_exceptions import (
+from ...exceptions import (
     EmailAlreadyVerifiedError,
     EmailVerificationInvalidError,
 )
 
-from ..utils import hash_token
+from ...utils import hash_token
 
 
 def verify_email(*, user_id: int, raw_token: str) -> None:
