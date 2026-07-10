@@ -25,6 +25,7 @@ class PhoneInActivationError:
 class PhoneAlreadyVerifiedError(Exception):
     pass
 
+
 class PhoneNotVerifiedError(Exception):
     pass
 
@@ -45,5 +46,16 @@ class OTPLockedError(Exception):
 class OTPInvalidError(Exception):
     pass
 
+
 class UserNotFoundError(Exception):
+    pass
+
+
+class PhoneChangeInvalidError(Exception):
+    pass
+
+class PhoneNumberInUseError(Exception):
+    pass
+
+class SamePhoneNumberError(Exception):
     pass

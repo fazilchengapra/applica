@@ -12,19 +12,21 @@ OTP_TTL_MINUTES = 5
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=15)
-def send_otp_sms_task(self, user_id, raw_otp):
-    print('sending')
+def send_otp_sms_task(self, user_id, raw_otp, **kwargs):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         logger.warning("send_otp_sms_task: user %s no longer exists", user_id)
         return
-    
+
     try:
         sms.send_sms(
-            to=str(user.phone_number),
+            to=str(
+                user.phone_number
+                if "override_phone_number" not in kwargs
+                else kwargs["override_phone_number"]
+            ),
             body=f"Your JobAuto verification code is {raw_otp}. It expires in {OTP_TTL_MINUTES} minutes.",
         )
     except TwilioRestException as exc:
-        # Twilio-side failure (bad number, carrier rejection, etc.) — retry with backoff
         raise self.retry(exc=exc)

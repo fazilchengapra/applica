@@ -14,8 +14,11 @@ from app.apps.authentication.utils import otp, token as tokens
 
 from app.apps.authentication.constants import phone, verification_type
 
+from app.apps.authentication.utils.cooldown import get_cool_down
+from app.apps.authentication.constants import cooldown
+
 def verify_phone_otp(user, code: str) -> None:
-    attempts_key = f"otp:attempts:{user.id}"
+    attempts_key = get_cool_down(cooldown.OTP_ATTEMPTS, user.id)
     attempts = cache.get(attempts_key, 0)
     if attempts >= phone.OTP_MAX_ATTEMPTS:
         raise OTPLockedError("Too many incorrect attempts. Request a new code.")
@@ -37,6 +40,7 @@ def verify_phone_otp(user, code: str) -> None:
 
     if token.token_hash != tokens.hash_token(code):
         cache.set(attempts_key, attempts + 1, timeout=phone.OTP_TTL_MINUTES * 60)
+        print(cache.get(attempts))
         raise OTPInvalidError("Incorrect code.")
 
     with transaction.atomic():
@@ -51,4 +55,4 @@ def verify_phone_otp(user, code: str) -> None:
         user.save(update_fields=["is_phone_verified"])
 
     cache.delete(attempts_key)
-    cache.delete(f"otp:cooldown:{user.id}")
+    cache.delete(get_cool_down(cooldown.OTP_COOLDOWN, user.id))

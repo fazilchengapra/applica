@@ -16,9 +16,12 @@ from app.apps.authentication.constants import verification_type
 
 from app.apps.authentication.constants import phone
 
+from app.apps.authentication.utils.cooldown import get_cool_down
+from app.apps.authentication.constants import cooldown
+
 
 def request_phone_otp(user, login=False) -> None:
-    cooldown_key = f"otp:cooldown:{user.id}"
+    cooldown_key = get_cool_down(cooldown.OTP_COOLDOWN, user.id)
     if cache.get(cooldown_key):
         raise OTPCooldownError("Please wait before requesting another code.")
 
@@ -33,11 +36,10 @@ def request_phone_otp(user, login=False) -> None:
         raise PhoneNotVerifiedError(
             "This number is not verified, please choose another method to login"
         )
-    
+
     auth_method = AuthMethod.objects.filter(
         user=user, provider=AuthMethod.MOBILE, is_verified=True
     ).first()
-
 
     VerificationToken.objects.filter(
         auth_method=auth_method,
@@ -56,6 +58,5 @@ def request_phone_otp(user, login=False) -> None:
     )
 
     cache.set(cooldown_key, True, timeout=phone.OTP_RESEND_COOLDOWN_SECONDS)
-    cache.delete(f"otp:attempts:{user.id}")
-    print("sending otp...")
+    cache.delete(get_cool_down(cooldown.OTP_ATTEMPTS, user.id))
     transaction.on_commit(lambda: send_otp_sms_task.delay(user.id, raw_otp))

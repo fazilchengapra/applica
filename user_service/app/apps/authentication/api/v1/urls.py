@@ -8,10 +8,13 @@ from .views.phone.phone_send_otp import RequestPhoneOTPView
 from .views.phone.verify_phone_otp import VerifyPhoneOTPView
 from .views.phone.request_login_otp import RequestLoginOTPView
 from .views.phone.verify_login_otp import VerifyLoginOTPView
+from .views.phone.request_phone_change import RequestPhoneChangeView
+from .views.phone.verify_phone_change import VerifyPhoneChangeView
 
 urlpatterns = [
     path("email/verify/", VerifyEmailView.as_view()),
     path("email/login/", EmailLoginView.as_view()),
+    
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("logout/", LogoutAPIView.as_view()),
 
@@ -20,5 +23,8 @@ urlpatterns = [
     path("phone/otp/verify/", VerifyPhoneOTPView.as_view()),
 
     path('phone/login/request/', RequestLoginOTPView.as_view()),
-    path('phone/login/verify/', VerifyLoginOTPView.as_view())
+    path('phone/login/verify/', VerifyLoginOTPView.as_view()),
+
+    path('phone/change/request/', RequestPhoneChangeView.as_view()),
+    path('phone/change/verify/', VerifyPhoneChangeView.as_view())
 ]

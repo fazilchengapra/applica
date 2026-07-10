@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from phonenumber_field.serializerfields import PhoneNumberField
 
 
 class RequestLoginOTPSerializer(serializers.Serializer):
@@ -11,8 +12,9 @@ class VerifyLoginOTPSerializer(serializers.Serializer):
 
 
 class RequestPhoneChangeSerializer(serializers.Serializer):
-    new_phone_number = serializers.CharField()
+    new_phone_number = PhoneNumberField()
 
 
 class VerifyPhoneChangeSerializer(serializers.Serializer):
-    code = serializers.CharField(min_length=6, max_length=6)
+    old_code = serializers.CharField(min_length=6, max_length=6)
+    new_code = serializers.CharField(min_length=6, max_length=6)
