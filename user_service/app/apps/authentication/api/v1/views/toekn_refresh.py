@@ -6,7 +6,7 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
 
-from ..utils import set_access_cookie
+from app.apps.authentication.utils import cookie
 
 
 class CookieTokenRefreshView(APIView):
@@ -31,5 +31,5 @@ class CookieTokenRefreshView(APIView):
         access_token = str(refresh.access_token)
 
         response = Response({"message": "Token refreshed."}, status=status.HTTP_200_OK)
-        set_access_cookie(response, access_token=access_token)
+        cookie.set_access_cookie(response, access_token=access_token)
         return response

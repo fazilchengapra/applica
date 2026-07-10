@@ -7,7 +7,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework.response import Response
 from rest_framework import status
 
-from ..utils import clear_auth_cookies
+from app.apps.authentication.utils import cookie
 
 
 class LogoutAPIView(APIView):
@@ -22,5 +22,5 @@ class LogoutAPIView(APIView):
                 pass  # already invalid/expired — nothing to blacklist
 
         response = Response({"message": "Logged out."}, status=status.HTTP_200_OK)
-        clear_auth_cookies(response)
+        cookie.clear_auth_cookies(response)
         return response

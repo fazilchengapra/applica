@@ -3,7 +3,7 @@ from celery.utils.log import get_task_logger
 from django.contrib.auth import get_user_model
 from twilio.base.exceptions import TwilioRestException
 
-from .utils import send_sms
+from app.apps.authentication.utils import sms
 
 User = get_user_model()
 logger = get_task_logger(__name__)
@@ -21,7 +21,7 @@ def send_otp_sms_task(self, user_id, raw_otp):
         return
     
     try:
-        send_sms(
+        sms.send_sms(
             to=str(user.phone_number),
             body=f"Your JobAuto verification code is {raw_otp}. It expires in {OTP_TTL_MINUTES} minutes.",
         )

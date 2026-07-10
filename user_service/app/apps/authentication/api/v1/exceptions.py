@@ -25,6 +25,9 @@ class PhoneInActivationError:
 class PhoneAlreadyVerifiedError(Exception):
     pass
 
+class PhoneNotVerifiedError(Exception):
+    pass
+
 
 class EmailInActiveError(Exception):
     pass
@@ -40,4 +43,7 @@ class OTPLockedError(Exception):
 
 
 class OTPInvalidError(Exception):
+    pass
+
+class UserNotFoundError(Exception):
     pass

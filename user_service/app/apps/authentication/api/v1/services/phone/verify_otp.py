@@ -10,7 +10,7 @@ from app.apps.authentication.api.v1.exceptions import (
 )
 from app.apps.authentication.models import VerificationToken
 from app.apps.authentication.api.v1.tasks import send_otp_sms_task
-from app.apps.authentication.api.v1.utils import generate_raw_token, hash_token
+from app.apps.authentication.utils import otp, token as tokens
 
 from app.apps.authentication.constants import phone, verification_type
 
@@ -35,7 +35,7 @@ def verify_phone_otp(user, code: str) -> None:
     if token is None or token.expires_at < timezone.now():
         raise OTPInvalidError("Code expired or not found. Request a new one.")
 
-    if token.token_hash != hash_token(code):
+    if token.token_hash != tokens.hash_token(code):
         cache.set(attempts_key, attempts + 1, timeout=phone.OTP_TTL_MINUTES * 60)
         raise OTPInvalidError("Incorrect code.")
 

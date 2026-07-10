@@ -12,7 +12,7 @@ from ...exceptions import (
     EmailVerificationInvalidError,
 )
 
-from ...utils import hash_token
+from app.apps.authentication.utils.token import hash_token
 
 
 def verify_email(*, user_id: int, raw_token: str) -> None:

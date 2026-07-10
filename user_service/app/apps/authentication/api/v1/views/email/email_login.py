@@ -12,7 +12,7 @@ from ...exceptions import (
     EmailInActiveError,
 )
 
-from ...utils import set_auth_cookies
+from app.apps.authentication.utils import cookie
 
 
 class EmailLoginView(APIView):
@@ -64,7 +64,7 @@ class EmailLoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
-        set_auth_cookies(
+        cookie.set_auth_cookies(
             response, access_token=res["access"], refresh_token=res["refresh"]
         )
 

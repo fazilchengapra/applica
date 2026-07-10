@@ -6,25 +6,18 @@ from django.utils import timezone
 
 from app.apps.authentication.api.v1.exceptions import (
     OTPCooldownError,
-    OTPInvalidError,
-    OTPLockedError,
     PhoneAlreadyVerifiedError,
+    PhoneNotVerifiedError,
 )
 from app.apps.authentication.models import AuthMethod, VerificationToken
 from app.apps.authentication.api.v1.tasks import send_otp_sms_task
-from app.apps.authentication.api.v1.utils import generate_raw_token, hash_token
+from app.apps.authentication.utils import token, otp
 from app.apps.authentication.constants import verification_type
 
 from app.apps.authentication.constants import phone
 
 
-def _generate_otp() -> str:
-    import secrets
-
-    return f"{secrets.randbelow(10 ** phone.OTP_LENGTH):0{phone.OTP_LENGTH}d}"
-
-
-def request_phone_otp(user) -> None:
+def request_phone_otp(user, login=False) -> None:
     cooldown_key = f"otp:cooldown:{user.id}"
     if cache.get(cooldown_key):
         raise OTPCooldownError("Please wait before requesting another code.")
@@ -33,8 +26,18 @@ def request_phone_otp(user) -> None:
         user=user, provider=AuthMethod.MOBILE, is_verified=False
     ).first()
 
-    if not auth_method:
-        raise PhoneAlreadyVerifiedError('This phone number is verified already!')
+    if not auth_method and not login:
+        raise PhoneAlreadyVerifiedError("This phone number is verified already!")
+
+    if login and auth_method:
+        raise PhoneNotVerifiedError(
+            "This number is not verified, please choose another method to login"
+        )
+    
+    auth_method = AuthMethod.objects.filter(
+        user=user, provider=AuthMethod.MOBILE, is_verified=True
+    ).first()
+
 
     VerificationToken.objects.filter(
         auth_method=auth_method,
@@ -43,12 +46,12 @@ def request_phone_otp(user) -> None:
         revoked_at__isnull=True,
     ).update(revoked_at=timezone.now())
 
-    raw_otp = _generate_otp()
+    raw_otp = otp._generate_otp()
     VerificationToken.objects.create(
         user=user,
         auth_method=auth_method,
         type=verification_type.PHONE_TYPE,
-        token_hash=hash_token(raw_otp),
+        token_hash=token.hash_token(raw_otp),
         expires_at=timezone.now() + timedelta(minutes=phone.OTP_TTL_MINUTES),
     )
 
