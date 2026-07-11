@@ -4,12 +4,12 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from app.apps.authentication.api.v1.exceptions import (
+from app.apps.authentication.exceptions import (
     OTPInvalidError,
     OTPLockedError,
 )
 from app.apps.authentication.models import VerificationToken
-from app.apps.authentication.api.v1.tasks import send_otp_sms_task
+from app.apps.authentication.tasks import send_otp_sms_task
 from app.apps.authentication.utils import otp, token as tokens
 
 from app.apps.authentication.constants import phone, verification_type

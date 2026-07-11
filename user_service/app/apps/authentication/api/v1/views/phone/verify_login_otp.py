@@ -1,8 +1,8 @@
-from ...serializers.phone_related_serializer import VerifyLoginOTPSerializer
+from ...serializers.phone_serializers import VerifyLoginOTPSerializer
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from ...services.phone.verify_login_otp import verify_login_otp
-from ...exceptions import OTPInvalidError, OTPLockedError, AccountInactiveError
+from .....services.phone.verify_login_otp import verify_login_otp
+from .....exceptions import OTPInvalidError, OTPLockedError, AccountInactiveError
 from rest_framework import status
 from rest_framework.response import Response
 from app.apps.authentication.utils import cookie

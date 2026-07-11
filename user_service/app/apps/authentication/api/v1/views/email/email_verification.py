@@ -2,12 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from ...serializers.verify_email_serializer import VerifyEmailSerializer
+from ...serializers.email_serializers import VerifyEmailSerializer
 
-from ...services.email.email_verification_service import verify_email
+from .....services.email.email_verification_service import verify_email
 
 # exception
-from ...exceptions import EmailVerificationInvalidError
+from .....exceptions import EmailVerificationInvalidError
 
 class VerifyEmailView(APIView):
 

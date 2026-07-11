@@ -2,11 +2,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app.apps.authentication.api.v1.exceptions import (
+from app.apps.authentication.exceptions import (
     AccountInactiveError,
     OTPInvalidError,
 )
-from app.apps.authentication.api.v1.services.phone.verify_otp import verify_phone_otp
+from app.apps.authentication.services.phone.verify_otp import verify_phone_otp
 
 User = get_user_model() 
 

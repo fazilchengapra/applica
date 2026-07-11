@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from ...services.phone.request_otp import request_phone_otp
-from ...exceptions import OTPCooldownError, PhoneAlreadyVerifiedError
+from .....services.phone.request_otp import request_phone_otp
+from .....exceptions import OTPCooldownError, PhoneAlreadyVerifiedError
 from rest_framework.response import Response
 from rest_framework import status
 

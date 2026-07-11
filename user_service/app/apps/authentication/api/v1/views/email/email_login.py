@@ -2,14 +2,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from ...serializers.email_login_serializer import EmailLoginSerializer
+from ...serializers.email_serializers import EmailLoginSerializer
 
-from ...services.email.email_login_service import login_user
+from .....services.email.email_login_service import login_user
 
-from ...exceptions import (
+from .....exceptions import (
     AccountInactiveError,
     InvalidCredentialsError,
     EmailInActiveError,
+    UserNotFoundError,
 )
 
 from app.apps.authentication.utils import cookie
@@ -30,6 +31,11 @@ class EmailLoginView(APIView):
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 request=request,
+            )
+        except UserNotFoundError as ex:
+            return Response(
+                {"detail": str(ex)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except AccountInactiveError as ex:
             return Response(

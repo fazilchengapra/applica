@@ -6,6 +6,10 @@ class EmailVerificationInvalidError(Exception):
     pass
 
 
+class EmailNotVerifiedError(Exception):
+    pass
+
+
 class InvalidCredentialsError(Exception):
     pass
 
@@ -54,8 +58,16 @@ class UserNotFoundError(Exception):
 class PhoneChangeInvalidError(Exception):
     pass
 
+
 class PhoneNumberInUseError(Exception):
     pass
 
+
 class SamePhoneNumberError(Exception):
+    pass
+
+class TokenInvalidError(Exception):
+    pass
+
+class TimeOutError(Exception):
     pass

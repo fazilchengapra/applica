@@ -3,11 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from ...services.phone.verify_phone_change import verify_phone_change
+from .....services.phone.verify_phone_change import verify_phone_change
 
-from ...serializers.phone_related_serializer import VerifyPhoneChangeSerializer
+from ...serializers.phone_serializers import VerifyPhoneChangeSerializer
 
-from ...exceptions import OTPLockedError, PhoneChangeInvalidError
+from .....exceptions import OTPLockedError, PhoneChangeInvalidError
 
 
 class VerifyPhoneChangeView(APIView):

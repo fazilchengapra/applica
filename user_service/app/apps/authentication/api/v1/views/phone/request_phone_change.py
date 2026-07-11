@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from ...serializers.phone_related_serializer import RequestPhoneChangeSerializer
-from ...services.phone.request_phone_change import request_phone_change
-from ...exceptions import (
+from ...serializers.phone_serializers import RequestPhoneChangeSerializer
+from .....services.phone.request_phone_change import request_phone_change
+from .....exceptions import (
     OTPCooldownError,
     PhoneNumberInUseError,
     SamePhoneNumberError,

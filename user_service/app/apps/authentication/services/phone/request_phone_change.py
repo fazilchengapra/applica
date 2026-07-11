@@ -11,7 +11,7 @@ from ...exceptions import (
     PhoneNotVerifiedError,
     SamePhoneNumberError,
 )
-from app.apps.authentication.api.v1.tasks import send_otp_sms_task
+from app.apps.authentication.tasks import send_otp_sms_task
 from app.apps.authentication.constants import phone, verification_type
 from app.apps.authentication.models import AuthMethod, VerificationToken
 from app.apps.authentication.utils import otp, token

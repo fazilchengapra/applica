@@ -18,3 +18,6 @@ class RequestPhoneChangeSerializer(serializers.Serializer):
 class VerifyPhoneChangeSerializer(serializers.Serializer):
     old_code = serializers.CharField(min_length=6, max_length=6)
     new_code = serializers.CharField(min_length=6, max_length=6)
+
+class VerifyPhoneOTPSerializer(serializers.Serializer):
+    code = serializers.CharField(min_length=6, max_length=6)

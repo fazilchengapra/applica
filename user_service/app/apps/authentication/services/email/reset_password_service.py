@@ -1,0 +1,39 @@
+from django.conf import settings
+from django.core.cache import cache
+from django.db import transaction
+from django.utils import timezone
+
+from app.apps.users.models import User
+from app.apps.authentication.models import VerificationToken
+from app.apps.authentication.constants import verification_type
+
+from ...constants import token, cooldown
+from ...utils.cooldown import get_cool_down
+from ...utils import token
+from ...exceptions import TokenInvalidError, TimeOutError
+
+def reset_password(raw_token: str, new_password: str) -> None:
+
+    token_hash = token.hash_token(raw_token)
+
+    try:
+        record = VerificationToken.objects.select_related("user").get(
+            token_hash=token_hash,
+            type=verification_type.PASSWORD_RESET_TYPE,
+            used_at__isnull=True,
+        )
+    except VerificationToken.DoesNotExist:
+        raise TokenInvalidError("This reset link is invalid or has already been used.")
+
+    if record.expires_at < timezone.now():
+        raise TimeOutError("This reset link has expired. Please request a new one.")
+
+    with transaction.atomic():
+        user = record.user
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        record.used_at = timezone.now()
+        record.save(update_fields=["used_at"])
+
+    cache.delete(get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id))
