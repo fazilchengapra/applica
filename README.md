@@ -349,10 +349,3 @@ Beyond CI logs, Elasticsearch indexes parsed resume/job-description text to supp
 | Cross-cutting | Custom Middleware & Signal/Event Bus | Request middleware chain, internal pub/sub signals |
 
 ---
-
-## 17. Suggested Next Steps
-
-- Finalize the DynamoDB single-table design (entity keys, GSIs) before building the AI Service data layer
-- Define the LangGraph state schema for the mock-interview graph early — it affects both the Redis session-state shape and the DynamoDB transcript format
-- Stand up Terraform modules for networking, EKS, and data stores first, so services have a real environment to deploy into from day one
-- Instrument Prometheus metrics into service code from the first deployment, rather than retrofitting later

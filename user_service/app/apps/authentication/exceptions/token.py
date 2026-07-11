@@ -3,3 +3,6 @@ class TokenInvalidError(Exception):
 
 class TokenExpiredError(Exception):
     pass
+
+class TokenRequestCooldownError(Exception):
+    pass

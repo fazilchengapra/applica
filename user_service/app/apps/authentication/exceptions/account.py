@@ -3,3 +3,6 @@ class UserNotFoundError(Exception):
 
 class AccountInactiveError(Exception):
     pass
+
+class AccountInActiveError(Exception):
+    pass
