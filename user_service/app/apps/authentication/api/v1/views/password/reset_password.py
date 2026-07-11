@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from ...serializers.email_serializers import ResetPasswordSerializer
-from app.apps.authentication.services.email.reset_password_service import reset_password
+from app.apps.authentication.services.password.reset_password_service import reset_password
 from app.apps.authentication.exceptions import TokenInvalidError
 
 

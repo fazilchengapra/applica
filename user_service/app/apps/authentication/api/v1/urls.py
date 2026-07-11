@@ -10,14 +10,16 @@ from .views.phone.request_login_otp import RequestLoginOTPView
 from .views.phone.verify_login_otp import VerifyLoginOTPView
 from .views.phone.request_phone_change import RequestPhoneChangeView
 from .views.phone.verify_phone_change import VerifyPhoneChangeView
-from .views.email.forgot_password import ForgotPasswordView
-from .views.email.reset_password import ResetPasswordView
+from .views.password.forgot_password import ForgotPasswordView
+from .views.password.reset_password import ResetPasswordView
+from .views.password.change_password import ChangePasswordView
 
 urlpatterns = [
     path("email/verify/", VerifyEmailView.as_view()),
     path("email/login/", EmailLoginView.as_view()),
     path("password/forgot/", ForgotPasswordView.as_view()),
     path("password/reset/", ResetPasswordView.as_view()),
+    path("password/change/", ChangePasswordView.as_view()),
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("logout/", LogoutAPIView.as_view()),
     # phone

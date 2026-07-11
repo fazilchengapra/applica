@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
-from .....services.email.forgot_password_service import request_reset
+from .....services.password.forgot_password_service import request_reset
 from ...serializers.email_serializers import ForgotPasswordRequestSerializer
 
 from .....exceptions import UserNotFoundError

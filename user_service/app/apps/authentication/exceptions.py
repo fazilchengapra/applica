@@ -71,3 +71,6 @@ class TokenInvalidError(Exception):
 
 class TimeOutError(Exception):
     pass
+
+class ConfirmPasswordNotMatchError(Exception):
+    pass

@@ -4,13 +4,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from app.apps.users.models import User
-from app.apps.authentication.models import VerificationToken
+from app.apps.authentication.models.verification_token import VerificationToken
 from app.apps.authentication.constants import verification_type
 
 from ...constants import token, cooldown
 from ...utils.cooldown import get_cool_down
 from ...utils import token
 from ...exceptions import TokenInvalidError, TimeOutError
+
 
 def reset_password(raw_token: str, new_password: str) -> None:
 
