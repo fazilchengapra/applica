@@ -45,3 +45,7 @@ class ChangePasswordSerializer(serializers.Serializer):
         if attrs["new_password"] != attrs["confirm_password"]:
             raise ConfirmPasswordNotMatchError("Confirm password do not match.")
         return attrs
+
+
+class EmailVerifyReqSerializer(serializers.Serializer):
+    email = serializers.EmailField()

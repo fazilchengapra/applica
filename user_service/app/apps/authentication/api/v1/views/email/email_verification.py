@@ -4,7 +4,7 @@ from rest_framework import status
 
 from ...serializers.email_serializers import VerifyEmailSerializer
 
-from .....services.email.email_verification_service import verify_email
+from .....services.email.email_verify import verify_email
 
 # exception
 from app.apps.authentication.exceptions.email import EmailVerificationInvalidError

@@ -13,8 +13,10 @@ from .views.phone.verify_phone_change import VerifyPhoneChangeView
 from .views.password.forgot_password import ForgotPasswordView
 from .views.password.reset_password import ResetPasswordView
 from .views.password.change_password import ChangePasswordView
+from .views.email.email_verify_req import RequestEmailVerificationView
 
 urlpatterns = [
+    path("email/verify/request/", RequestEmailVerificationView.as_view()),
     path("email/verify/", VerifyEmailView.as_view()),
     path("email/login/", EmailLoginView.as_view()),
     path("password/forgot/", ForgotPasswordView.as_view()),

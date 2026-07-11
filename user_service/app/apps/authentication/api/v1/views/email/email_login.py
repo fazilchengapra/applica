@@ -4,7 +4,7 @@ from rest_framework import status
 
 from ...serializers.email_serializers import EmailLoginSerializer
 
-from app.apps.authentication.services.email.email_login_service import login_user
+from app.apps.authentication.services.email.login import login_user
 
 from app.apps.authentication.exceptions.account import (
     AccountInactiveError,
