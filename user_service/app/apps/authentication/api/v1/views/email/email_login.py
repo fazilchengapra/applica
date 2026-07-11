@@ -4,17 +4,17 @@ from rest_framework import status
 
 from ...serializers.email_serializers import EmailLoginSerializer
 
-from .....services.email.email_login_service import login_user
+from app.apps.authentication.services.email.email_login_service import login_user
 
-from .....exceptions import (
+from app.apps.authentication.exceptions.account import (
     AccountInactiveError,
-    InvalidCredentialsError,
-    EmailInActiveError,
     UserNotFoundError,
 )
 
-from app.apps.authentication.utils import cookie
+from app.apps.authentication.exceptions.authentication import InvalidCredentialsError
+from app.apps.authentication.exceptions.email import EmailInActiveError
 
+from app.apps.authentication.utils import cookie
 
 class EmailLoginView(APIView):
     def post(self, request):

@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from .....services.password.forgot_password_service import request_reset
 from ...serializers.email_serializers import ForgotPasswordRequestSerializer
 
-from .....exceptions import UserNotFoundError
+from app.apps.authentication.exceptions.account import UserNotFoundError
 
 
 class ForgotPasswordView(APIView):

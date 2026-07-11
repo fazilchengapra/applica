@@ -7,7 +7,7 @@ from app.apps.authentication.services.password.change_pass_service import (
     change_password,
 )
 from ...serializers.email_serializers import ChangePasswordSerializer
-from app.apps.authentication.exceptions import ConfirmPasswordNotMatchError
+from app.apps.authentication.exceptions.password import ConfirmPasswordNotMatchError
 
 
 class ChangePasswordView(APIView):

@@ -1,9 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from .....services.phone.request_otp import request_phone_otp
-from .....exceptions import OTPCooldownError, PhoneAlreadyVerifiedError
 from rest_framework.response import Response
 from rest_framework import status
+
+from app.apps.authentication.services.phone.request_otp import request_phone_otp
+from app.apps.authentication.exceptions.otp import OTPCooldownError
+from app.apps.authentication.exceptions.phone import PhoneAlreadyVerifiedError
 
 
 class RequestPhoneOTPView(APIView):
@@ -17,9 +19,7 @@ class RequestPhoneOTPView(APIView):
                 {"detail": str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS
             )
         except PhoneAlreadyVerifiedError as exc:
-            return Response(
-                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {"message": "Verification code sent."}, status=status.HTTP_200_OK

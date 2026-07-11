@@ -4,13 +4,14 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
 
-from ...exceptions import (
-    OTPCooldownError,
+from ...exceptions.otp import OTPCooldownError
+from ...exceptions.phone import (
     PhoneNumberInUseError,
     PhoneChangeInvalidError,
     PhoneNotVerifiedError,
     SamePhoneNumberError,
 )
+
 from app.apps.authentication.tasks import send_otp_sms_task
 from app.apps.authentication.constants import phone, verification_type
 from app.apps.authentication.models import AuthMethod, VerificationToken

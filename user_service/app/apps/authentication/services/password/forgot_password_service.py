@@ -11,7 +11,8 @@ from app.apps.users.models import User
 from app.apps.authentication.models import VerificationToken
 from app.apps.authentication.constants import verification_type
 from app.apps.authentication.tasks import send_password_reset_email_task
-from ...exceptions import UserNotFoundError, EmailNotVerifiedError
+from ...exceptions.account import UserNotFoundError
+from ...exceptions.email import EmailNotVerifiedError
 
 from app.apps.authentication.models import AuthMethod
 

@@ -1,0 +1,2 @@
+class ConfirmPasswordNotMatchError(Exception):
+    pass

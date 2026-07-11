@@ -1,15 +1,17 @@
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+
 from ...serializers.phone_serializers import RequestPhoneChangeSerializer
-from .....services.phone.request_phone_change import request_phone_change
-from .....exceptions import (
-    OTPCooldownError,
+from app.apps.authentication.services.phone.request_phone_change import (
+    request_phone_change,
+)
+from app.apps.authentication.exceptions.phone import (
     PhoneNumberInUseError,
     SamePhoneNumberError,
 )
-from rest_framework import status
-from rest_framework.response import Response
-
+from app.apps.authentication.exceptions.otp import OTPCooldownError
 
 class RequestPhoneChangeView(APIView):
     permission_classes = [IsAuthenticated]

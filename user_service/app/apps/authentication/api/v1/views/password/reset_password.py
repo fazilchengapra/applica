@@ -4,8 +4,13 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from ...serializers.email_serializers import ResetPasswordSerializer
-from app.apps.authentication.services.password.reset_password_service import reset_password
-from app.apps.authentication.exceptions import TokenInvalidError
+from app.apps.authentication.services.password.reset_password_service import (
+    reset_password,
+)
+from app.apps.authentication.exceptions.token import (
+    TokenInvalidError,
+    TokenExpiredError,
+)
 
 
 class ResetPasswordView(APIView):
@@ -22,6 +27,10 @@ class ResetPasswordView(APIView):
             )
         except TokenInvalidError as ex:
             return Response({"detail": str(ex)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except TokenExpiredError as ex:
+            return Response({"detail": str(ex)}, status=status.HTTP_400_BAD_REQUEST)
+
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

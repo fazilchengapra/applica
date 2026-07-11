@@ -4,9 +4,9 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from ...serializers.phone_serializers import VerifyPhoneOTPSerializer
-from .....services.phone.verify_otp import verify_phone_otp
+from app.apps.authentication.services.phone.verify_otp import verify_phone_otp
 
-from .....exceptions import OTPLockedError, OTPInvalidError
+from app.apps.authentication.exceptions.otp import OTPLockedError, OTPInvalidError
 
 class VerifyPhoneOTPView(APIView):
     permission_classes = [IsAuthenticated]

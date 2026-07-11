@@ -10,7 +10,7 @@ from app.apps.authentication.constants import verification_type
 from ...constants import token, cooldown
 from ...utils.cooldown import get_cool_down
 from ...utils import token
-from ...exceptions import TokenInvalidError, TimeOutError
+from ...exceptions.token import TokenInvalidError, TokenExpiredError
 
 
 def reset_password(raw_token: str, new_password: str) -> None:
@@ -27,7 +27,7 @@ def reset_password(raw_token: str, new_password: str) -> None:
         raise TokenInvalidError("This reset link is invalid or has already been used.")
 
     if record.expires_at < timezone.now():
-        raise TimeOutError("This reset link has expired. Please request a new one.")
+        raise TokenExpiredError("This reset link has expired. Please request a new one.")
 
     with transaction.atomic():
         user = record.user

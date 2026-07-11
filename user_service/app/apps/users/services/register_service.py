@@ -29,12 +29,6 @@ def _hash_token(raw_token: str) -> str:
 @transaction.atomic
 def register_user(*, first_name, last_name, email, phone_number, password, **kwargs) -> User:
 
-    """
-    Creates the User, Profile, AuthMethod (email provider) and a
-    VerificationToken row in a single transaction, then schedules the
-    verification email to fire only after the transaction commits.
-    """
-
     user = User.objects.create_user(
         email=email,
         phone_number=phone_number,

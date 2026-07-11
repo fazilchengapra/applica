@@ -2,14 +2,12 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app.apps.authentication.exceptions import (
-    AccountInactiveError,
-    OTPInvalidError,
-)
+from app.apps.authentication.exceptions.account import AccountInactiveError
+from app.apps.authentication.exceptions.otp import OTPInvalidError
+
 from app.apps.authentication.services.phone.verify_otp import verify_phone_otp
 
-User = get_user_model() 
-
+User = get_user_model()
 
 def verify_login_otp(*, phone_number: str, code: str) -> dict:
     try:

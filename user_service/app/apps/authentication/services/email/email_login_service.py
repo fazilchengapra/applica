@@ -3,12 +3,10 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ...exceptions import (
-    AccountInactiveError,
-    InvalidCredentialsError,
-    EmailInActiveError,
-    UserNotFoundError
-)
+from ...exceptions.account import AccountInactiveError, UserNotFoundError
+from ...exceptions.authentication import InvalidCredentialsError
+from ...exceptions.email import EmailInActiveError
+
 from app.apps.authentication.models import AuthMethod
 from app.apps.authentication.constants import verification_type
 
@@ -23,7 +21,7 @@ def login_user(*, email: str, password: str, request=None) -> dict:
     ).first()
 
     if not user:
-        raise UserNotFoundError('User not found')
+        raise UserNotFoundError("User not found")
 
     if not auth_method:
         raise EmailInActiveError("In active email address")

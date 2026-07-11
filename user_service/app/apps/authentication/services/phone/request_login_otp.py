@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 
-from ...exceptions import UserNotFoundError
+from ...exceptions.account import UserNotFoundError
 from app.apps.authentication.services.phone.request_otp import request_phone_otp
 
 User = get_user_model()

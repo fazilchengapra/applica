@@ -7,8 +7,8 @@ from .....services.phone.verify_phone_change import verify_phone_change
 
 from ...serializers.phone_serializers import VerifyPhoneChangeSerializer
 
-from .....exceptions import OTPLockedError, PhoneChangeInvalidError
-
+from app.apps.authentication.exceptions.otp import OTPLockedError
+from app.apps.authentication.exceptions.phone import PhoneChangeInvalidError
 
 class VerifyPhoneChangeView(APIView):
     permission_classes = [IsAuthenticated]

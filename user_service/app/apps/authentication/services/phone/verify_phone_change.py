@@ -9,8 +9,8 @@ from app.apps.authentication.utils.cooldown import get_cool_down
 
 from app.apps.authentication.constants import cooldown
 
-from ...exceptions import PhoneChangeInvalidError, OTPLockedError
-
+from ...exceptions.phone import PhoneChangeInvalidError
+from ...exceptions.otp import OTPLockedError
 
 def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
     pending_key = get_cool_down(cooldown.PHONE_CHANGE_PENDING, user.id)

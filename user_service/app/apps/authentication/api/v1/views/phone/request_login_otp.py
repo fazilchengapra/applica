@@ -1,10 +1,15 @@
-from ...serializers.phone_serializers import RequestLoginOTPSerializer
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from app.apps.authentication.services.phone.request_login_otp import request_login_otp
-from .....exceptions import OTPCooldownError, UserNotFoundError, PhoneNotVerifiedError
 from rest_framework import status
 from rest_framework.response import Response
+
+from app.apps.authentication.services.phone.request_login_otp import request_login_otp
+
+from app.apps.authentication.exceptions.otp import OTPCooldownError
+from app.apps.authentication.exceptions.account import UserNotFoundError
+from app.apps.authentication.exceptions.phone import PhoneNotVerifiedError
+
+from ...serializers.phone_serializers import RequestLoginOTPSerializer
 
 
 class RequestLoginOTPView(APIView):

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from app.apps.authentication.exceptions import ConfirmPasswordNotMatchError
+from app.apps.authentication.exceptions.password import ConfirmPasswordNotMatchError
 
 
 class VerifyPhoneOTPSerializer(serializers.Serializer):
