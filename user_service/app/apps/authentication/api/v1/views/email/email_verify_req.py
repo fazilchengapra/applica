@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
 from app.apps.authentication.services.email.email_verify_req import request_verification
-from ...serializers.email_serializers import EmailVerifyReqSerializer
+from ...serializers.email_serializers import CommonEmailSerializer
 
 from app.apps.authentication.exceptions.account import UserNotFoundError
 from app.apps.authentication.exceptions.email import EmailAlreadyVerifiedError
@@ -17,7 +17,7 @@ class RequestEmailVerificationView(APIView):
 
     def post(self, request):
         try:
-            serializer = EmailVerifyReqSerializer(data=request.data)
+            serializer = CommonEmailSerializer(data=request.data)
 
             if not serializer.is_valid():
                 return Response(
@@ -32,9 +32,11 @@ class RequestEmailVerificationView(APIView):
 
         except EmailAlreadyVerifiedError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         except TokenRequestCooldownError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
 
         except UnexpectedError as e:
             return Response(

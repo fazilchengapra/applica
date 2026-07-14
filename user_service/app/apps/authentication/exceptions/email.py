@@ -11,3 +11,15 @@ class EmailNotVerifiedError(Exception):
 
 class EmailInActiveError(Exception):
     pass
+
+class EmailInUseError(Exception):
+    pass
+
+class EmailChangeInvalidError(Exception):
+    pass
+
+class SameEmailError(Exception):
+    pass
+
+class EmailChangeTokenInvalidError(Exception):
+    pass

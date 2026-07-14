@@ -14,16 +14,20 @@ from .views.password.forgot_password import ForgotPasswordView
 from .views.password.reset_password import ResetPasswordView
 from .views.password.change_password import ChangePasswordView
 from .views.email.email_verify_req import RequestEmailVerificationView
+from .views.email.email_change_req import EmailChangeRequestView
+from .views.email.email_change_confirm import EmailChangeConfirmView
 
 urlpatterns = [
+    # email
     path("email/verify/request/", RequestEmailVerificationView.as_view()),
     path("email/verify/", VerifyEmailView.as_view()),
     path("email/login/", EmailLoginView.as_view()),
+    path("email/change/request/", EmailChangeRequestView.as_view()),
+    path("email/change/confirm/", EmailChangeConfirmView.as_view()),
+    # password
     path("password/forgot/", ForgotPasswordView.as_view()),
     path("password/reset/", ResetPasswordView.as_view()),
     path("password/change/", ChangePasswordView.as_view()),
-    path("token/refresh/", CookieTokenRefreshView.as_view()),
-    path("logout/", LogoutAPIView.as_view()),
     # phone
     path("phone/otp/request/", RequestPhoneOTPView.as_view()),
     path("phone/otp/verify/", VerifyPhoneOTPView.as_view()),
@@ -31,4 +35,7 @@ urlpatterns = [
     path("phone/login/verify/", VerifyLoginOTPView.as_view()),
     path("phone/change/request/", RequestPhoneChangeView.as_view()),
     path("phone/change/verify/", VerifyPhoneChangeView.as_view()),
+    # common
+    path("token/refresh/", CookieTokenRefreshView.as_view()),
+    path("logout/", LogoutAPIView.as_view()),
 ]

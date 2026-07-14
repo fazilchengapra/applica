@@ -14,12 +14,12 @@ from app.apps.authentication.exceptions.email import (
 from app.apps.authentication.utils.token import hash_token
 
 
-def verify_email(*, user_id: int, raw_token: str) -> None:
+def verify_email(*,raw_token: str) -> None:
 
     token = (
         VerificationToken.objects.select_related("auth_method", "user")
         .filter(
-            user_id=user_id,
+            token_hash=hash_token(raw_token),
             type=EMAIL_TYPE,
             used_at__isnull=True,
             revoked_at__isnull=True,

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
 from .....services.password.forgot_password_service import request_reset
-from ...serializers.email_serializers import ForgotPasswordRequestSerializer
+from ...serializers.email_serializers import CommonEmailSerializer
 
 from app.apps.authentication.exceptions.account import UserNotFoundError
 
@@ -13,7 +13,7 @@ class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = ForgotPasswordRequestSerializer(data=request.data)
+        serializer = CommonEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:

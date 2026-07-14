@@ -58,9 +58,8 @@ def request_reset(email: str) -> None:
             expires_at=expires_at,
             auth_method=auth_method,
         )
-        print(raw_token)
-        # transaction.on_commit(
-        #     lambda: send_password_reset_email_task.delay(user.id, raw_token)
-        # )
+        transaction.on_commit(
+            lambda: send_password_reset_email_task.delay(user.id, raw_token)
+        )
 
     cache.set(cooldown_key, True, token_const.RESET_COOLDOWN_SECONDS)

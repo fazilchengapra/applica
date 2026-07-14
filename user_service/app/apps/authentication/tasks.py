@@ -45,7 +45,7 @@ def send_password_reset_email_task(self, user_id, raw_token):
     except User.DoesNotExist:
         return
 
-    reset_link = f"{os.getenv('FRONTEND_URL')}/password/reset?token={raw_token}"
+    reset_link = f"{os.getenv('FRONTEND_URL')}/verify-email?token={raw_token}"
 
     subject = "Reset your JobAuto password"
     message = (
@@ -71,7 +71,7 @@ def send_password_reset_email_task(self, user_id, raw_token):
         raise self.retry(exc=exc)
     
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
-def send_email_verification_task(self, user_id, raw_token):
+def send_email_verification_task(self, user_id, raw_token, email=None):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
@@ -91,7 +91,7 @@ def send_email_verification_task(self, user_id, raw_token):
             subject=subject,
             message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
+            recipient_list=[user.email if not email else email],
             fail_silently=False,
         )
     except Exception as exc:

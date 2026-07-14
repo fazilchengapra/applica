@@ -7,4 +7,7 @@ PHONE_CHANGE_ATTEMPTS = "phone_change:attempts"
 
 PASSWORD_RESET_COOLDOWN = "reset:cooldown"
 
-EMAIL_CHANGE_COOLDOWN = "email_verify:cooldown"
+EMAIL_CHANGE_COOLDOWN = 'email_change:cooldown'
+EMAIL_CHANGE_OLD = "email_change_old:cooldown"
+EMAIL_CHANGE_NEW = "email_change_new:cooldown"
+EMAIL_CHANGE_PENDING='email_change:pending'

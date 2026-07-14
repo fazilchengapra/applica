@@ -23,7 +23,6 @@ class VerifyEmailView(APIView):
 
         try:
             verify_email(
-                user_id=serializer.validated_data["uid"],
                 raw_token=serializer.validated_data["token"],
             )
 

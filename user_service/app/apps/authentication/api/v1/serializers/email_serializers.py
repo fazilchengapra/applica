@@ -12,11 +12,10 @@ class EmailLoginSerializer(serializers.Serializer):
 
 
 class VerifyEmailSerializer(serializers.Serializer):
-    uid = serializers.IntegerField()
     token = serializers.CharField()
 
 
-class ForgotPasswordRequestSerializer(serializers.Serializer):
+class CommonEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
     def validate_email(self, value):
@@ -47,5 +46,5 @@ class ChangePasswordSerializer(serializers.Serializer):
         return attrs
 
 
-class EmailVerifyReqSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+class EmailChangeReqSerializer(serializers.Serializer):
+    new_email = serializers.EmailField()
