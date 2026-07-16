@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  user-service:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    env_file:
+      - ./user_service/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./user_service:/app
+
+  celery:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app", "worker", "-l", "info"]
+    env_file:
+      - ./user_service/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key}
+      DB_NAME: ${DB_NAME:-applica_db}
+      DB_USER: ${DB_USER:-applica_user}
+      DB_PASSWORD: ${DB_PASSWORD:-applica_password}
+      SKIP_MIGRATIONS: "1"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./user_service:/app
+
+volumes:
+  postgres_data:
