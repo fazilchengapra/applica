@@ -86,8 +86,8 @@ def request_email_change(user, new_email: str) -> None:
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
 
     send_email_verification_task.delay(
-        user.id, raw_old_token
+        user.id, raw_old_token, email_change=True
     )  # defaults to user.email
     send_email_verification_task.delay(
-        user.id, raw_new_token, email=new_email
+        user.id, raw_new_token, email=new_email, email_change=True
     )

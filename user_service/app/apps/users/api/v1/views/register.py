@@ -40,5 +40,7 @@ class UserView(APIView):
                     "email": user.email,
                     "phone_number": str(user.phone_number),
                 },
-            }
+                "detail": "Verification Link Sended to Your Email",
+            },
+            status=status.HTTP_201_CREATED,
         )

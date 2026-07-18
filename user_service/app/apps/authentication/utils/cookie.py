@@ -22,7 +22,7 @@ def set_refresh_cookie(response, *, refresh_token: str):
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.COOKIE_DOMAIN,
         max_age=7 * 24 * 60 * 60,
-        path="/api/v1/auth/",
+        path="/",
     )
 
 

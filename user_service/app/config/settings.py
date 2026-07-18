@@ -15,7 +15,7 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG")
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = []
 
@@ -98,6 +98,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "app.apps.authentication.auth_class.CookieJWTAuthentication",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 
@@ -182,6 +183,17 @@ AUTH_USER_MODEL = "users.User"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+ACCESS_COOKIE_SAMESITE = "Lax"
+REFRESH_COOKIE_SAMESITE = "Lax"
+
+ACCESS_COOKIE_SECURE = False
+REFRESH_COOKIE_SECURE = False
+
+# drf-spectacular (OpenAPI / Swagger) settings
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Applica Backend API",
+    "DESCRIPTION": "OpenAPI schema for the Applica Backend",
+    "VERSION": "1.0.0",
+}

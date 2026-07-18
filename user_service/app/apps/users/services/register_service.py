@@ -17,6 +17,9 @@ from app.apps.authentication.constants import verification_type
 # constants
 VERIFICATION_TOKEN_TTL_MINUTES = 30
 
+# task
+from app.apps.authentication.tasks import send_email_verification_task
+
 
 def _generate_raw_token() -> str:
     return secrets.token_urlsafe(32)
@@ -60,5 +63,5 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
         token_hash=_hash_token(raw_token),
         expires_at=timezone.now() + timedelta(minutes=VERIFICATION_TOKEN_TTL_MINUTES),
     )
-    print(f'token hash is {raw_token}')
+    send_email_verification_task.delay(user.id, raw_token)
     return user

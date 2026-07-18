@@ -30,7 +30,7 @@ class VerifyLoginOTPView(APIView):
 
         user = result["user"]
         response = Response(
-            {"user": {"id": user.id, "phone_number": str(user.phone_number)}},
+            {"user": {"id": user.id, "phone_number": str(user.phone_number)}, "message":"login success"},
             status=status.HTTP_200_OK,
         )
         cookie.set_auth_cookies(

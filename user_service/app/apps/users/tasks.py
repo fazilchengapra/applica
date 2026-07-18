@@ -1,7 +1,6 @@
 from celery import shared_task
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
-
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def revoke_all_tokens_task(self, user_id):
     try:
