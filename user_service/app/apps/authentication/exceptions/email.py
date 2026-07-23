@@ -5,7 +5,6 @@ class EmailAlreadyVerifiedError(Exception):
 class EmailVerificationInvalidError(Exception):
     pass
 
-
 class EmailNotVerifiedError(Exception):
     pass
 

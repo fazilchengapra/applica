@@ -11,14 +11,11 @@ def update_profile(user_id, data):
     allowed_fields = {
         "first_name",
         "last_name",
-        "display_name",
         "bio",
         "date_of_birth",
         "gender",
         "country",
         "city",
-        "timezone",
-        "locale",
     }
 
     for field, value in data.items():
