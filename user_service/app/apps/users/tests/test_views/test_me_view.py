@@ -53,3 +53,70 @@ def test_me_query_count_stays_low(client, django_assert_max_num_queries):
         response = client.get("/api/v1/users/me/")
 
     assert response.status_code == 200
+
+def test_delete_me_wrong_password_returns_400(client):
+    user = UserFactory()
+    _authenticate_via_cookie(client, user)
+
+    response = client.delete(
+        "/api/v1/users/me/",
+        {"password": "wrong-password"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    user.refresh_from_db()
+    assert user.is_active is True
+
+
+def test_delete_me_correct_password_deactivates_and_returns_204(client, mailoutbox):
+    from app.apps.users.tests.factories import DEFAULT_PASSWORD
+
+    user = UserFactory()
+    _authenticate_via_cookie(client, user)
+
+    response = client.delete(
+        "/api/v1/users/me/",
+        {"password": DEFAULT_PASSWORD},
+        format="json",
+    )
+
+    assert response.status_code == 204
+    user.refresh_from_db()
+    assert user.is_active is False
+    assert user.deactivated_at is not None
+
+
+def test_delete_me_clears_auth_cookies(client):
+    from app.apps.users.tests.factories import DEFAULT_PASSWORD
+
+    user = UserFactory()
+    _authenticate_via_cookie(client, user)
+
+    response = client.delete(
+        "/api/v1/users/me/",
+        {"password": DEFAULT_PASSWORD},
+        format="json",
+    )
+
+    access_cookie = response.cookies.get(settings.ACCESS_TOKEN_COOKIE)
+    refresh_cookie = response.cookies.get(settings.REFRESH_TOKEN_COOKIE)
+    assert access_cookie is not None
+    assert access_cookie["max-age"] == 0
+    assert refresh_cookie is not None
+    assert refresh_cookie["max-age"] == 0
+
+
+def test_delete_me_missing_password_currently_returns_200_not_400(client):
+    user = UserFactory()
+    _authenticate_via_cookie(client, user)
+
+    response = client.delete(
+        "/api/v1/users/me/",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    user.refresh_from_db()
+    assert user.is_active is True  # account not actually touched, at least

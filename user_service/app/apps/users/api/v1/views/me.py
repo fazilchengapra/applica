@@ -26,7 +26,10 @@ class MeView(APIView):
         serializer = DeleteAccountSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response({"detail": "Validation error", "error": serializer.errors})
+            return Response(
+                {"detail": "Validation error", "error": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             delete_account(
