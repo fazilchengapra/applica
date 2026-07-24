@@ -3,7 +3,6 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ...exceptions.account import AccountInactiveError, UserNotFoundError
 from ...exceptions.authentication import InvalidCredentialsError
 from ...exceptions.email import EmailInActiveError
 
@@ -20,18 +19,13 @@ def login_user(*, email: str, password: str, request=None) -> dict:
         user=user, provider=AuthMethod.EMAIL, is_verified=True, is_active=True
     ).first()
 
-    if not user:
-        raise UserNotFoundError("User not found")
+    if user is None:
+        raise InvalidCredentialsError("Invalid email or password.")
 
     if not auth_method:
         raise EmailInActiveError("In active email address")
 
-    if user is None:
-        raise InvalidCredentialsError("Invalid email or password.")
-
-    if not user.is_active:
-        raise AccountInactiveError("This account has been deactivated.")
-
+    
     user.last_login = timezone.now()
     user.save(update_fields=["last_login"])
 

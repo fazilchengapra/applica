@@ -32,7 +32,7 @@ def request_reset(email: str) -> None:
         user=user, provider=AuthMethod.EMAIL
     ).first()
 
-    if not auth_method.is_verified or not auth_method.is_active:
+    if not auth_method or not auth_method.is_verified or not auth_method.is_active:
         raise EmailNotVerifiedError("Email is not verified or inactive login method")
 
     cooldown_key = get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id)

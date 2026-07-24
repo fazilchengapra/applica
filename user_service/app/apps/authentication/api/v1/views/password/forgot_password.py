@@ -7,6 +7,7 @@ from .....services.password.forgot_password_service import request_reset
 from ...serializers.email_serializers import CommonEmailSerializer
 
 from app.apps.authentication.exceptions.account import UserNotFoundError
+from app.apps.authentication.exceptions.email import EmailNotVerifiedError
 
 
 class ForgotPasswordView(APIView):
@@ -18,7 +19,7 @@ class ForgotPasswordView(APIView):
 
         try:
             request_reset(serializer.validated_data["email"])
-        except UserNotFoundError as exc:
+        except (UserNotFoundError, EmailNotVerifiedError)as exc:
             return Response(
                 {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,

@@ -32,11 +32,7 @@ class EmailLoginView(APIView):
                 password=serializer.validated_data["password"],
                 request=request,
             )
-        except UserNotFoundError as ex:
-            return Response(
-                {"detail": str(ex)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+
         except AccountInactiveError as ex:
             return Response(
                 {"detail": str(ex)},
@@ -45,7 +41,7 @@ class EmailLoginView(APIView):
         except InvalidCredentialsError as ex:
             return Response(
                 {"detail": str(ex)},
-                status=status.HTTP_401_UNAUTHORIZED,
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except EmailInActiveError as ex:
             return Response(
