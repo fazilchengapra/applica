@@ -17,6 +17,7 @@ from .views.email.email_verify_req import RequestEmailVerificationView
 from .views.email.email_change_req import EmailChangeRequestView
 from .views.email.email_change_confirm import EmailChangeConfirmView
 from .views.oauth.oauth_view import GoogleAuthView
+from .views.phone.add_phone import AddPhoneView
 
 urlpatterns = [
     # email
@@ -30,6 +31,7 @@ urlpatterns = [
     path("password/reset/", ResetPasswordView.as_view()),
     path("password/change/", ChangePasswordView.as_view()),
     # phone
+    path("phone/add/", AddPhoneView.as_view()),
     path("phone/otp/request/", RequestPhoneOTPView.as_view()),
     path("phone/otp/verify/", VerifyPhoneOTPView.as_view()),
     path("phone/login/request/", RequestLoginOTPView.as_view()),
@@ -38,7 +40,6 @@ urlpatterns = [
     path("phone/change/verify/", VerifyPhoneChangeView.as_view()),
     # Google OAuth
     path("google/", GoogleAuthView.as_view()),
-
     # common
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("logout/", LogoutAPIView.as_view()),

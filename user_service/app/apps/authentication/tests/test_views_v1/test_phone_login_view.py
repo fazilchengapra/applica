@@ -48,7 +48,7 @@ def test_request_login_otp_unknown_phone_returns_400(client):
 
 
 def test_request_login_otp_success_returns_200(client, mocker):
-    user = UserFactory(phone_number="+919876500030")
+    user = UserFactory(phone_number="+919876500030", is_phone_verified=True)
     AuthMethodFactory(user=user, provider=AuthMethod.MOBILE, is_verified=True)
     mocker.patch.object(send_otp_sms_task, "delay")
 
@@ -62,7 +62,9 @@ def test_request_login_otp_success_returns_200(client, mocker):
 
 def test_verify_login_otp_success_sets_cookies(client):
     user = UserFactory(phone_number="+919876500031")
-    auth_method = AuthMethodFactory(user=user, provider=AuthMethod.MOBILE, is_verified=True)
+    auth_method = AuthMethodFactory(
+        user=user, provider=AuthMethod.MOBILE, is_verified=True
+    )
     _create_phone_otp_token(user, auth_method, raw_code="654321")
 
     response = client.post(
@@ -78,7 +80,9 @@ def test_verify_login_otp_success_sets_cookies(client):
 
 def test_verify_login_otp_wrong_code_returns_400(client):
     user = UserFactory(phone_number="+919876500032")
-    auth_method = AuthMethodFactory(user=user, provider=AuthMethod.MOBILE, is_verified=True)
+    auth_method = AuthMethodFactory(
+        user=user, provider=AuthMethod.MOBILE, is_verified=True
+    )
     _create_phone_otp_token(user, auth_method, raw_code="654321")
 
     response = client.post(

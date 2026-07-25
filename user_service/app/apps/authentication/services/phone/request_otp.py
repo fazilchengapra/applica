@@ -38,9 +38,10 @@ def request_phone_otp(user, login=False) -> None:
             "This number is not verified, please choose another method to login"
         )
 
-    auth_method = AuthMethod.objects.filter(
-        user=user, provider=AuthMethod.MOBILE, is_verified=True
-    ).first()
+    if login:
+        auth_method = AuthMethod.objects.filter(
+            user=user, provider=AuthMethod.MOBILE, is_verified=True
+        ).first()
 
     VerificationToken.objects.filter(
         auth_method=auth_method,

@@ -21,3 +21,6 @@ class VerifyPhoneChangeSerializer(serializers.Serializer):
 
 class VerifyPhoneOTPSerializer(serializers.Serializer):
     code = serializers.CharField(min_length=6, max_length=6)
+
+class RequestPhoneAddSerializer(serializers.Serializer):
+    phone_number = PhoneNumberField()

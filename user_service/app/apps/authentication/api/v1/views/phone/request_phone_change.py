@@ -10,8 +10,11 @@ from app.apps.authentication.services.phone.request_phone_change import (
 from app.apps.authentication.exceptions.phone import (
     PhoneNumberInUseError,
     SamePhoneNumberError,
+    PhoneChangeInvalidError,
+    PhoneNotVerifiedError,
 )
 from app.apps.authentication.exceptions.otp import OTPCooldownError
+
 
 class RequestPhoneChangeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -30,7 +33,11 @@ class RequestPhoneChangeView(APIView):
             )
         except PhoneNumberInUseError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-        except SamePhoneNumberError as exc:
+        except (
+            SamePhoneNumberError,
+            PhoneChangeInvalidError,
+            PhoneNotVerifiedError,
+        ) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
