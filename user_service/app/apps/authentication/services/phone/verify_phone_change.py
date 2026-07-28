@@ -12,6 +12,12 @@ from app.apps.authentication.constants import cooldown
 from ...exceptions.phone import PhoneChangeInvalidError
 from ...exceptions.otp import OTPLockedError
 
+# notification
+from app.apps.notifications.services.phone_notification import (
+    phone_number_change_notification,
+)
+
+
 def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
     pending_key = get_cool_down(cooldown.PHONE_CHANGE_PENDING, user.id)
     new_phone_number = cache.get(pending_key)
@@ -48,9 +54,15 @@ def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
         new_token.auth_method.last_used_at = timezone.now()
         new_token.auth_method.save(update_fields=["last_used_at"])
 
+        old_number = user.phone_number
+
         user.phone_number = new_phone_number
         user.is_phone_verified = True
         user.save(update_fields=["phone_number", "is_phone_verified"])
+
+        phone_number_change_notification(
+            user=user, new_phone=new_phone_number, old_phone=old_number
+        )
 
     cache.delete(attempts_key)
     cache.delete(pending_key)
