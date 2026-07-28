@@ -12,6 +12,9 @@ from ...utils.cooldown import get_cool_down
 from ...utils import token
 from ...exceptions.token import TokenInvalidError, TokenExpiredError
 
+# notifications
+from app.apps.authentication.services.password import reset_password_service
+
 
 def reset_password(raw_token: str, new_password: str) -> None:
 
@@ -27,7 +30,9 @@ def reset_password(raw_token: str, new_password: str) -> None:
         raise TokenInvalidError("This reset link is invalid or has already been used.")
 
     if record.expires_at < timezone.now():
-        raise TokenExpiredError("This reset link has expired. Please request a new one.")
+        raise TokenExpiredError(
+            "This reset link has expired. Please request a new one."
+        )
 
     with transaction.atomic():
         user = record.user
@@ -36,5 +41,7 @@ def reset_password(raw_token: str, new_password: str) -> None:
 
         record.used_at = timezone.now()
         record.save(update_fields=["used_at"])
+
+        reset_password_service(user=user)
 
     cache.delete(get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id))
