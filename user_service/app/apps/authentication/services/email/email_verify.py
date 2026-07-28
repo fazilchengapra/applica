@@ -13,6 +13,9 @@ from app.apps.authentication.exceptions.email import (
 
 from app.apps.authentication.utils.token import hash_token
 
+# notification
+from app.apps.notifications.services.email_notification import email_verified_notification
+
 
 def verify_email(*,raw_token: str) -> None:
 
@@ -49,3 +52,5 @@ def verify_email(*,raw_token: str) -> None:
 
         token.user.is_email_verified = True
         token.user.save(update_fields=["is_email_verified"])
+
+        email_verified_notification(user=token.user, email=token.user.email)

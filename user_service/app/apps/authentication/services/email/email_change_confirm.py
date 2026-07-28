@@ -10,6 +10,9 @@ from django.core.cache import cache
 from ...utils.cooldown import get_cool_down
 from app.apps.users.models import User
 
+# notification
+from app.apps.notifications.services.email_notification import email_change_notification
+
 
 def confirm_email_change(user, raw_token: str) -> bool:
     """Returns True once both old and new email have confirmed and the swap is complete."""
@@ -59,11 +62,15 @@ def confirm_email_change(user, raw_token: str) -> bool:
     if User.objects.filter(email__iexact=new_email).exclude(id=user.id).exists():
         raise EmailInUseError("This email is already in use.")
 
+    old_mail = user.email
+
     user.email = new_email
     user.is_email_verified = True
     user.save(update_fields=["email", "is_email_verified"])
 
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_OLD, user.id))
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
+
+    email_change_notification(user=user, new_email=new_email, old_email=old_mail)
 
     return True

@@ -27,7 +27,7 @@ class AuthMethod(models.Model):
 
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
 
-    # ---- OAuth (google) ----
+    # OAuth google
     provider_uid = models.CharField(
         max_length=255,
         null=True,

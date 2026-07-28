@@ -8,9 +8,7 @@ from app.apps.users.services.register_service import register_user
 
 
 class UserView(APIView):
-    """
-    API view for user creation.
-    """
+    # API view for user creation.
 
     def post(self, request):
 

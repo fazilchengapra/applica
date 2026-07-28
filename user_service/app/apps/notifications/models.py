@@ -4,7 +4,7 @@ from django.db import models
 from django.conf import settings
 
 # constants
-from .constant import NotificationType
+from .constants.notification_type import NotificationType
 
 
 class Notification(models.Model):

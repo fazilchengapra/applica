@@ -33,7 +33,7 @@ class NotificationType(models.TextChoices):
     )
 
     # account
-    LOGIN = (
+    WELCOME = (
         "account.register",
-        "Login",
+        "Welcome",
     )
