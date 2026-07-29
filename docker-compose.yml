@@ -64,5 +64,27 @@ services:
     volumes:
       - ./user_service:/app
 
+  flower:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app", "flower", "--port=5555"]
+    env_file:
+      - ./user_service/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-key}
+      DB_NAME: ${DB_NAME:-applica_db}
+      DB_USER: ${DB_USER:-applica_user}
+      DB_PASSWORD: ${DB_PASSWORD:-applica_password}
+      # FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
 volumes:
   postgres_data:
