@@ -64,9 +64,6 @@ def send_password_reset_email_task(self, user_id, raw_token):
             recipient_list=[user.email],
             fail_silently=False,
         )
-        print(
-            f"mail send func take time almost {time.perf_counter() - start:.2f} seconds"
-        )
     except Exception as exc:
         raise self.retry(exc=exc)
     
