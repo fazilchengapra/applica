@@ -15,7 +15,6 @@ from ...exceptions.token import TokenInvalidError, TokenExpiredError
 # notifications
 from app.apps.authentication.services.password import reset_password_service
 
-
 def reset_password(raw_token: str, new_password: str) -> None:
 
     token_hash = token.hash_token(raw_token)
