@@ -11,10 +11,49 @@ from app.apps.authentication.exceptions.phone import PhoneNotVerifiedError
 
 from ...serializers.phone_serializers import RequestLoginOTPSerializer
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+
 
 class RequestLoginOTPView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RequestLoginOTPSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Generic success message, returned even if the number isn't registered.",
+                examples=[
+                    OpenApiExample(
+                        "Success",
+                        value={
+                            "message": "If this number is registered, a code has been sent."
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                description="Number not registered, or the phone is not yet verified.",
+                examples=[
+                    OpenApiExample("Not found", value={"detail": "User not found."}),
+                    OpenApiExample(
+                        "Not verified",
+                        value={"detail": "Phone number is not verified."},
+                    ),
+                ],
+            ),
+            429: OpenApiResponse(
+                description="Too many OTP requests recently; cooldown in effect.",
+                examples=[
+                    OpenApiExample(
+                        "Cooldown",
+                        value={"detail": "Please wait before requesting another code."},
+                    )
+                ],
+            ),
+        },
+        description="Sends a login OTP to the given phone number, if registered and verified.",
+        summary="Request login OTP",
+    )
     def post(self, request):
         serializer = RequestLoginOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

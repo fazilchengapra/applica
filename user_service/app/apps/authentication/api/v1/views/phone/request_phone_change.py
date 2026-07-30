@@ -15,10 +15,72 @@ from app.apps.authentication.exceptions.phone import (
 )
 from app.apps.authentication.exceptions.otp import OTPCooldownError
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 
 class RequestPhoneChangeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=RequestPhoneChangeSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Verification codes sent to both the current and new phone numbers.",
+                examples=[
+                    OpenApiExample(
+                        "Success",
+                        value={
+                            "message": "Verification codes sent to your current and new number."
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                description="Same phone number, invalid change request, or current phone not verified.",
+                examples=[
+                    OpenApiExample(
+                        "Same number",
+                        value={
+                            "detail": "New phone number must be different from your current one."
+                        },
+                    ),
+                    OpenApiExample(
+                        "Invalid change",
+                        value={"detail": "Phone change request is invalid."},
+                    ),
+                    OpenApiExample(
+                        "Not verified",
+                        value={"detail": "Your current phone number is not verified."},
+                    ),
+                ],
+            ),
+            409: OpenApiResponse(
+                description="New phone number is already in use by another account.",
+                examples=[
+                    OpenApiExample(
+                        "Already in use",
+                        value={"detail": "This phone number is already in use."},
+                    )
+                ],
+            ),
+            429: OpenApiResponse(
+                description="Too many requests sent recently; cooldown in effect.",
+                examples=[
+                    OpenApiExample(
+                        "Cooldown",
+                        value={
+                            "detail": "Please wait before requesting another change."
+                        },
+                    )
+                ],
+            ),
+        },
+        description=(
+            "Starts the dual-confirmation phone change flow. Sends an OTP to both "
+            "the user's current and new phone numbers; the change only completes "
+            "once both sides confirm."
+        ),
+        summary="Request phone number change",
+    )
     def post(self, request):
         serializer = RequestPhoneChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
