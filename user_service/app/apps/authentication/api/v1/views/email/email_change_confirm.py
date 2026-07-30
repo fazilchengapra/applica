@@ -17,15 +17,55 @@ from app.apps.authentication.services.email.email_change_confirm import (
 )
 
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, OpenApiExample
+from app.apps.authentication.openapi import COMMON_AUTH_ERROR_RESPONSES
 
 
 class EmailChangeConfirmView(APIView):
     permission_classes = [IsAuthenticated]
+
     @extend_schema(
         request=EmailChangeConfirmationSerializer,
-        description="Confirm an email change using the token sent to the old or new email.",
+        responses={
+            200: OpenApiResponse(
+                description="Confirmation accepted. May be fully complete or still awaiting the other side.",
+                examples=[
+                    OpenApiExample(
+                        "Fully completed",
+                        value={
+                            "detail": "Email updated successfully.",
+                            "completed": True,
+                        },
+                    ),
+                    OpenApiExample(
+                        "Awaiting other confirmation",
+                        value={
+                            "detail": "Confirmed. Waiting for the other email to confirm.",
+                            "completed": False,
+                        },
+                    ),
+                ],
+            ),
+            400: OpenApiResponse(
+                description="Token is invalid/expired, or the new email is already in use.",
+                examples=[
+                    OpenApiExample(
+                        "Invalid token",
+                        value={"detail": "Token is invalid or expired."},
+                    ),
+                    OpenApiExample(
+                        "Email in use", value={"detail": "Email is already in use."}
+                    ),
+                ],
+            ),
+        },
+        description=(
+            "Confirms one side of the dual-confirmation email change flow. "
+            "Both the old and new email addresses must independently confirm "
+            "via their own token before the change is finalized."
+        ),
+        summary="Confirm email change",
     )
-
     def post(self, request):
         serializer = EmailChangeConfirmationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

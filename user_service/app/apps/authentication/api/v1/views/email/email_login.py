@@ -6,17 +6,71 @@ from ...serializers.email_serializers import EmailLoginSerializer
 
 from app.apps.authentication.services.email.login import login_user
 
-from app.apps.authentication.exceptions.account import (
-    AccountInactiveError,
-    UserNotFoundError,
-)
+from app.apps.authentication.exceptions.account import AccountInactiveError
 
 from app.apps.authentication.exceptions.authentication import InvalidCredentialsError
 from app.apps.authentication.exceptions.email import EmailInActiveError
 
 from app.apps.authentication.utils import cookie
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+
+
 class EmailLoginView(APIView):
+    @extend_schema(
+        request=EmailLoginSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Login successful. Auth cookies are set on the response.",
+                examples=[
+                    OpenApiExample(
+                        "Success",
+                        value={
+                            "access": "<jwt>",
+                            "refresh": "<jwt>",
+                            "user": {
+                                "id": "b3b1e...uuid",
+                                "email": "user@example.com",
+                                "phone_number": "+911234567890",
+                                "is_email_verified": True,
+                                "is_phone_verified": False,
+                            },
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                description="Validation error or invalid credentials.",
+                examples=[
+                    OpenApiExample(
+                        "Validation error",
+                        value={
+                            "detail": "Validation error ",
+                            "error": {"email": ["This field is required."]},
+                        },
+                    ),
+                    OpenApiExample(
+                        "Invalid credentials",
+                        value={"detail": "Invalid email or password."},
+                    ),
+                ],
+            ),
+            403: OpenApiResponse(
+                description="Account or email is inactive.",
+                examples=[
+                    OpenApiExample(
+                        "Account inactive",
+                        value={"detail": "This account is inactive."},
+                    ),
+                    OpenApiExample(
+                        "Email inactive", value={"detail": "This email is inactive."}
+                    ),
+                ],
+            ),
+        },
+        description="Authenticates a user via email/password and sets HttpOnly access/refresh cookies on success.",
+        summary="Login with email",
+    )
     def post(self, request):
         serializer = EmailLoginSerializer(data=request.data)
 
