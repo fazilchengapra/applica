@@ -2,7 +2,6 @@
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 from ..serializers.me_serializer import MeSerializer
@@ -13,15 +12,47 @@ from rest_framework.response import Response
 from app.apps.users.services.acc_dlt_service import delete_account
 from app.apps.users.exception import InvalidPasswordError
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: MeSerializer},
+        description="Retrieves the authenticated user's own account details.",
+        summary="Get current user",
+    )
     def get(self, request):
         user = get_current_user(request.user.id)
         serializer = MeSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=DeleteAccountSerializer,
+        responses={
+            204: OpenApiResponse(
+                description="Account deleted successfully. Auth cookies cleared."
+            ),
+            400: OpenApiResponse(
+                description="Validation error, or incorrect password.",
+                examples=[
+                    OpenApiExample(
+                        "Validation error",
+                        value={
+                            "detail": "Validation error",
+                            "error": {"password": ["This field is required."]},
+                        },
+                    ),
+                    OpenApiExample(
+                        "Wrong password", value={"detail": "Password is incorrect."}
+                    ),
+                ],
+            ),
+        },
+        description="Permanently deletes the authenticated user's account after confirming their password.",
+        summary="Delete account",
+    )
     def delete(self, request):
         serializer = DeleteAccountSerializer(data=request.data)
 
