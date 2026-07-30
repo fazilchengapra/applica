@@ -12,10 +12,44 @@ from app.apps.authentication.exceptions.token import (
     TokenExpiredError,
 )
 
+# swagger api docs
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+
 
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=ResetPasswordSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Password reset successfully.",
+                examples=[
+                    OpenApiExample(
+                        "Success",
+                        value={"message": "Your password has been reset successfully."},
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                description="Token is invalid or expired, or the new password fails validation.",
+                examples=[
+                    OpenApiExample(
+                        "Invalid token", value={"detail": "Token is invalid."}
+                    ),
+                    OpenApiExample(
+                        "Expired token", value={"detail": "Token has expired."}
+                    ),
+                    OpenApiExample(
+                        "Weak password",
+                        value={"detail": "Password does not meet requirements."},
+                    ),
+                ],
+            ),
+        },
+        description="Resets a user's password using the token sent via the forgot-password flow.",
+        summary="Reset password",
+    )
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
