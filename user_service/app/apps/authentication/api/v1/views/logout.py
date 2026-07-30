@@ -9,10 +9,27 @@ from rest_framework import status
 
 from app.apps.authentication.utils import cookie
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+
 
 class LogoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                description="Logged out successfully. Refresh token blacklisted (if valid) and auth cookies cleared.",
+                examples=[OpenApiExample("Success", value={"message": "Logged out."})],
+            ),
+        },
+        description=(
+            "Logs out the authenticated user. Blacklists the refresh token if present "
+            "and valid, then clears the access/refresh HttpOnly cookies. Always returns "
+            "200 even if the refresh token was already expired or missing."
+        ),
+        summary="Logout",
+    )
     def post(self, request):
         raw_refresh = request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE)
         if raw_refresh:
