@@ -16,9 +16,15 @@ from app.apps.authentication.services.email.email_change_confirm import (
     confirm_email_change,
 )
 
+from drf_spectacular.utils import extend_schema
+
 
 class EmailChangeConfirmView(APIView):
     permission_classes = [IsAuthenticated]
+    @extend_schema(
+        request=EmailChangeConfirmationSerializer,
+        description="Confirm an email change using the token sent to the old or new email.",
+    )
 
     def post(self, request):
         serializer = EmailChangeConfirmationSerializer(data=request.data)

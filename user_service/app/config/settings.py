@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     # Third Party Apps
+    "drf_spectacular",
     "channels",
     "rest_framework",
     "rest_framework_simplejwt",
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     "app.apps.authentication",
     "app.apps.profiles",
     "app.apps.notifications",
+    "app.apps.task_monitoring",
 ]
 
 MIDDLEWARE = [
@@ -72,7 +74,6 @@ TEMPLATES = [
     },
 ]
 
-# config/settings.py
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -147,6 +148,16 @@ CACHES = {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": os.getenv("REDIS_URL", default="redis://localhost:6379/0"),
     }
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Applica - User Service API",
+    "DESCRIPTION": "Auth, profiles, notifications",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SECURITY": [
+        {"cookieAuth": [{"type": "apiKey", "in": "cookie", "name": "access_token"}]}
+    ],
 }
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", default="redis://localhost:6379/0")
