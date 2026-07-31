@@ -1,0 +1,50 @@
+_format_version: "3.0"
+
+services:
+  - name: user-service
+    url: http://user-service:8000
+    routes:
+      - name: user-service-v1
+        paths:
+          - /api/v1/auth
+          - /api/v1/users
+          - /api/v1/profiles
+        strip_path: false
+        preserve_host: true
+
+  - name: ai-service
+    url: http://ai-service:8001
+    routes:
+      - name: ai-service-v1
+        paths:
+          - /api/v1/ai
+        strip_path: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "http://localhost:3000"
+      credentials: true
+      headers:
+        - Accept
+        - Content-Type
+        - Authorization
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
