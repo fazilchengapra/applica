@@ -1,0 +1,116 @@
+_format_version: "3.0"
+
+services:
+  - name: user-service
+    url: http://user-service:8000
+    routes:
+      - name: user-service-v1-public
+        paths:
+          - /api/v1/auth/token/refresh/
+          - /api/v1/auth/logout/
+          - /api/v1/auth/email/verify/
+          - /api/v1/auth/email/verify/request/
+          - /api/v1/auth/email/login/
+          - /api/v1/auth/phone/login/request/
+          - /api/v1/auth/phone/login/verify/
+          - /api/v1/auth/password/forgot/
+          - /api/v1/auth/password/reset/
+          - /api/v1/auth/google/
+        strip_path: false
+        preserve_host: true
+      
+      - name: user-service-v1-users-public
+        paths:
+          - /api/v1/auth/users/
+        methods:
+          - POST
+        strip_path: false
+        preserve_host: true
+      
+      - name: user-service-v1-protected
+        paths:
+           - /api/v1/auth
+           - /api/v1/user
+           - /api/v1/profile
+        strip_path: false
+        preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              key_claim_name: iss
+              cookie_names:
+                - access_token
+          - name: post-function
+            config:
+              access:
+                - |
+                  local ok, err = pcall(function()
+                    local jwt_cookie = ngx.var.cookie_access_token
+                    if jwt_cookie then
+                      local payload_b64 = jwt_cookie:match("^[^.]+%.([^.]+)%.")
+                      if payload_b64 then
+                        payload_b64 = payload_b64:gsub("%-", "+"):gsub("_", "/")
+                        local pad = #payload_b64 % 4
+                        if pad > 0 then
+                          payload_b64 = payload_b64 .. string.rep("=", 4 - pad)
+                        end
+                        local ok2, decoded = pcall(ngx.decode_base64, payload_b64)
+                        if ok2 and decoded then
+                          local user_id = decoded:match('"user_id"%s*:%s*"?([%w%-_]+)"?')
+                          if user_id then
+                            kong.service.request.set_header("X-User-Id", user_id)
+                          end
+                        end
+                      end
+                    end
+                    kong.service.request.set_header("X-Gateway-Secret", "__GATEWAY_INTERNAL_SECRET__")
+                  end)
+                  if not ok then
+                    kong.log.err("post-function header injection failed: ", err)
+                  end              
+
+  - name: ai-service
+    url: http://ai-service:8001
+    routes:
+      - name: ai-service-v1
+        paths:
+          - /api/v1/ai
+        strip_path: true
+
+consumers:
+  - username: user-service-issuer
+    jwt_secrets:
+      - algorithm: HS256
+        key: "applica-user-service"
+        secret: "__KONG_JWT_SECRET__"
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "http://localhost:3000"
+      credentials: true
+      headers:
+        - Accept
+        - Content-Type
+        - Authorization
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local

@@ -96,16 +96,23 @@ services:
     image: kong:3.9
     container_name: kong
     restart: unless-stopped
+    env_file:
+      - ./kong/.env
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     volumes:
-      - ./kong/declarative:/kong/declarative
+      - ./kong/declarative:/kong/declarative:ro
+    entrypoint: >
+      sh -c "esc_jwt=$$(printf '%s' \"$$KONG_JWT_SECRET\" | sed -e 's/[&\\\\]/\\\\&/g') &&
+      esc_gw=$$(printf '%s' \"$$GATEWAY_INTERNAL_SECRET\" | sed -e 's/[&\\\\]/\\\\&/g') &&
+      sed -e \"s|__KONG_JWT_SECRET__|$$esc_jwt|g\" -e \"s|__GATEWAY_INTERNAL_SECRET__|$$esc_gw|g\" /kong/declarative/kong.yml.template > /tmp/kong.yml &&
+      /docker-entrypoint.sh kong docker-start"
     ports:
       - "8000:8000"   # public proxy
       - "8001:8001"   # admin API (dev only — don't expose in prod)
