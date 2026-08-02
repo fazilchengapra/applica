@@ -13,7 +13,10 @@ from ...utils import token
 from ...exceptions.token import TokenInvalidError, TokenExpiredError
 
 # notifications
-from app.apps.authentication.services.password import reset_password_service
+from app.apps.notifications.services.password_notification import (
+    password_reset_notification,
+)
+
 
 def reset_password(raw_token: str, new_password: str) -> None:
 
@@ -41,6 +44,6 @@ def reset_password(raw_token: str, new_password: str) -> None:
         record.used_at = timezone.now()
         record.save(update_fields=["used_at"])
 
-        reset_password_service(user=user)
+        password_reset_notification(user=user)
 
     cache.delete(get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id))

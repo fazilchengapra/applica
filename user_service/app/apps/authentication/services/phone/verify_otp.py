@@ -57,7 +57,7 @@ def verify_phone_otp(user, code: str) -> None:
         user.is_phone_verified = True
         user.save(update_fields=["is_phone_verified"])
 
-        phone_verified_notification(user=user, phone=user.phone)
+        phone_verified_notification(user=user, phone=user.phone_number)
 
     cache.delete(attempts_key)
     cache.delete(get_cool_down(cooldown.OTP_COOLDOWN, user.id))

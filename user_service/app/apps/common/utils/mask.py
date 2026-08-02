@@ -10,6 +10,7 @@ def mask_email(email: str) -> str:
 
 
 def mask_phone_number(phone_number: str) -> str:
+    phone_number=str(phone_number)
     if len(phone_number) <= 4:
         return "*" * len(phone_number)
 
