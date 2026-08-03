@@ -16,6 +16,5 @@ the repo.
 
 - CORS
 - correlation-id
-- rate-limiting
 
 Document config specifics for each (limits, allowed origins) here.

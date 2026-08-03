@@ -16,11 +16,6 @@ No other service should read/write these tables directly — go through the API.
 
 ## Diagram
 
-Add an ER diagram here (dbdiagram.io export, or generated via
-`django-extensions graph_models`).
 
 ## Conventions
 
-- Naming conventions (snake_case, table prefixes)
-- Soft delete pattern if used
-- Indexing notes for high-traffic tables

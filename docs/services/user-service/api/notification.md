@@ -9,8 +9,7 @@ Sends and tracks email / push / in-app notifications triggered by other apps.
 | Method | Path | Description | Auth required |
 |---|---|---|---|
 | GET | `/api/notifications/` | List current user's notifications | Yes |
-| PATCH | `/api/notifications/{id}/read/` | Mark as read | Yes |
-| POST | `/api/notifications/preferences/` | Update notification preferences | Yes |
+| POST | `/api/notifications/read/` | Mark as read | Yes |
 
 ## Channels supported
 
