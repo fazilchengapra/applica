@@ -9,9 +9,5 @@
 ## Running tests
 
 ```bash
-python manage.py test
+pytest path-for-the-folder
 ```
-
-## CI test gating
-
-Link to [ci-cd.md](../infrastructure/ci-cd.md).
