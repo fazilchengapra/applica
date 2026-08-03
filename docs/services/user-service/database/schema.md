@@ -70,10 +70,6 @@ without forking the `users` table per provider. One user can have several rows h
 | `linked_at` | timestamp | NN | When this method was first attached to the account. |
 | `last_used_at` | timestamp | | Updated on each successful login via this method. Useful for "last seen via Google" type UI and for identifying stale/unused methods. |
 
-**Known issue:** several flows (`request_phone_otp(login=True)`, `request_reset`,
-first-time phone verification) currently assume an `AuthMethod` row exists and
-crash if it doesn't — documented separately, fix pending.
-
 ---
 
 ## `verification_tokens`
