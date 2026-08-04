@@ -1,0 +1,9 @@
+
+- name: ai-service
+  url: http://ai-service:8001
+  routes:
+    - name: ai-service-v1
+      paths:
+        - /api/v1/ai
+      strip_path: true
+      
