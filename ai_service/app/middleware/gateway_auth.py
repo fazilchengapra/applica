@@ -11,6 +11,7 @@ class GatewayAuthMiddleware(BaseHTTPMiddleware):
 
 
         gateway_secret = request.headers.get("X-Gateway-Secret")
+        
         print(expected_secret)
 
         if gateway_secret != expected_secret:
