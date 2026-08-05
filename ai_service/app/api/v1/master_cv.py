@@ -26,8 +26,6 @@ router = APIRouter(prefix="/master-cv", tags=["master-cv"])
 async def upload_master_cv(
     file: UploadFile = File(...), current_user_id: str = Depends(get_current_user_id)
 ):
-
-    print(current_user_id)
     content = await file.read()
 
     try:

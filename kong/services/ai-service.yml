@@ -15,7 +15,8 @@
             key_claim_name: iss
             cookie_names:
               - access_token
+
         - name: header_injector
           config:
-            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"  
       
