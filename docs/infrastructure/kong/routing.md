@@ -124,12 +124,10 @@ Request example:
 
 ```http
 GET /api/v1/profile HTTP/1.1
-Authorization: Bearer <access-token>
+Cookie: access_token=<jwt-access-token>
 ```
 
-Kong validates the JWT before forwarding the request to the backend service.
-
-If the token is invalid or missing, Kong returns an authentication error and the request is not forwarded.
+Kong extracts the JWT from the incoming HTTP cookie, validates the token, and forwards the request only if authentication succeeds. If the cookie is missing, expired, or contains an invalid token, Kong returns an authentication error without forwarding the request to the backend service.
 
 ---
 
