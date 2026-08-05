@@ -106,10 +106,13 @@ services:
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_PLUGINS: bundled,header_injector
+      KONG_LUA_PACKAGE_PATH: /opt/kong/plugins/?.lua;/opt/kong/plugins/?/init.lua;;
     volumes:
       - ./kong/declarative:/kong/declarative:ro
       - ./kong/services:/kong/services:ro
       - ./kong/start-kong.sh:/start-kong.sh:ro
+      - ./kong/plugins:/opt/kong/plugins/kong/plugins:ro
     entrypoint:
       - sh
       - /start-kong.sh
