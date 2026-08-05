@@ -2,8 +2,20 @@
 - name: ai-service
   url: http://ai-service:8001
   routes:
-    - name: ai-service-v1
+    - name: ai-service-v1-protected
       paths:
-        - /api/v1/ai
-      strip_path: true
+        - /api/ai/v1
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
       
