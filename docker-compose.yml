@@ -54,6 +54,22 @@ services:
     volumes:
       - ./user_service:/app
 
+  ai-celery:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.core.celery_app","worker","--concurrency=1","-Q","ai_service_queue","-l","info"]
+    env_file:
+      - ./ai_service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_user:ai_pass@ai_postgres:5432/ai_service_db
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - ai_postgres
+      - redis
+
   flower:
     build:
       context: ./user_service
@@ -87,8 +103,11 @@ services:
     build:
       context: ./ai_service
       dockerfile: Dockerfile
-    # ports:
-    #   - "8001:8001"
+    env_file:
+      - ./ai_service/.env
+    depends_on:
+      - ai_postgres
+      - redis
     volumes:
       - ./ai_service:/app
   
