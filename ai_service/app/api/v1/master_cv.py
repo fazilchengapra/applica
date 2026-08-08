@@ -1,5 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
 from app.core.dependencies import get_current_user_id
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
 
 # service
 from app.modules.master_cv.services.cv_service import (
@@ -24,12 +26,12 @@ router = APIRouter(prefix="/master-cv", tags=["master-cv"])
 
 @router.post("/", response_model=CVUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_master_cv(
-    file: UploadFile = File(...), current_user_id: str = Depends(get_current_user_id)
+    file: UploadFile = File(...), current_user_id: str = Depends(get_current_user_id), session: AsyncSession = Depends(get_db)
 ):
     content = await file.read()
 
     try:
-        object_key = await process_cv_upload(file.filename, content)
+        object_key = await process_cv_upload(file.filename, content, current_user_id, session=session)
     except (InvalidPDFError, FileTooLargeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except S3UploadError as e:

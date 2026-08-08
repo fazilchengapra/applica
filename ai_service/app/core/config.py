@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     DATABASE_URL: str
 
@@ -9,8 +10,19 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
     S3_BUCKET_NAME: str
+    S3_ENDPOINT_URL: str
+
+    # openrouter
+    OPENROUTER_MODEL: str
+    OPENROUTER_API_KEY: str
+    OPENROUTER_BASE_URL: str
+
+    # celery
+    CELERY_BROKER_URL: str
+    CELERY_RESULT_BACKEND: str
 
     class Config:
         env_file = ".env"
+
 
 settings = Settings()

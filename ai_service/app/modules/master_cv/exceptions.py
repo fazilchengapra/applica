@@ -9,3 +9,6 @@ class FileTooLargeError(Exception):
 
 class InvalidPDFError(Exception):
     pass
+
+class CVStructuringError(Exception):
+    pass
