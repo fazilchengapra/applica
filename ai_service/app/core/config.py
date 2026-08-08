@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
 
+    # embed
+    VOYAGE_API_KEY: str
+
     class Config:
         env_file = ".env"
 

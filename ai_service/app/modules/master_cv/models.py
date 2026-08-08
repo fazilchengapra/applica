@@ -1,8 +1,9 @@
 from app.db.base import Base
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, BigInteger
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, BigInteger
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
 from datetime import datetime
 from enum import Enum as PyEnum
@@ -26,10 +27,10 @@ class MasterCV(Base):
     raw_text = Column(Text, nullable=True)
     s3_key = Column(String, nullable=True)  # original uploaded file
     embedding = Column(
-        Vector(1536), nullable=True
+        Vector(1024), nullable=True
     )  # pgvector, if you're embedding the whole CV
     parsed_data = Column(
-        JSON, nullable=True
+        JSONB, nullable=True
     )  # structured extraction (education, experience, etc.)
 
     status = Column(
@@ -38,5 +39,5 @@ class MasterCV(Base):
         default=CVStatus.PENDING,
     )
 
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
