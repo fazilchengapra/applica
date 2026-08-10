@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
+import uuid
 from app.core.dependencies import get_current_user_id
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
@@ -19,6 +20,7 @@ from ...modules.master_cv.exceptions import (
     S3UploadError,
     FileTooLargeError,
     S3ObjectNotFoundError,
+    CVNotfoundError,
 )
 
 router = APIRouter(prefix="/master-cv", tags=["master-cv"])
@@ -26,12 +28,16 @@ router = APIRouter(prefix="/master-cv", tags=["master-cv"])
 
 @router.post("/", response_model=CVUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_master_cv(
-    file: UploadFile = File(...), current_user_id: str = Depends(get_current_user_id), session: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
 ):
     content = await file.read()
 
     try:
-        object_key = await process_cv_upload(file.filename, content, current_user_id, session=session)
+        object_key = await process_cv_upload(
+            file.filename, content, current_user_id, session=session
+        )
     except (InvalidPDFError, FileTooLargeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except S3UploadError as e:
@@ -43,16 +49,23 @@ async def upload_master_cv(
 
 
 @router.put(
-    "/{old_object_key:path}",
+    "/{cv_id:uuid}",
     response_model=CVUploadResponse,
     status_code=status.HTTP_200_OK,
 )
-async def update_master_cv(old_object_key: str, file: UploadFile = File(...)):
+async def update_master_cv(
+    cv_id: uuid.UUID,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id),
+):
     content = await file.read()
 
     try:
-        object_key = await process_cv_update(old_object_key, file.filename, content)
-    except (InvalidPDFError, FileTooLargeError) as e:
+        object_key = await process_cv_update(
+            file.filename, content, cv_id, current_user_id, session
+        )
+    except (InvalidPDFError, FileTooLargeError, CVNotfoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except S3UploadError as e:
         raise HTTPException(status_code=502, detail=str(e))

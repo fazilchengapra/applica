@@ -12,3 +12,6 @@ class InvalidPDFError(Exception):
 
 class CVStructuringError(Exception):
     pass
+
+class CVNotfoundError(Exception):
+    pass
