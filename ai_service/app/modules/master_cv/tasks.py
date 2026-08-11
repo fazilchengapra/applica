@@ -2,7 +2,7 @@ import asyncio
 from app.core.celery_app import celery_app
 from app.db.celery_db import CelerySessionLocal
 
-from app.modules.master_cv.models import MasterCV
+from app.modules.master_cv.models import MasterCVVersion, CVStatus
 
 from app.modules.master_cv.services.helpers.s3_downloader import download_pdf_from_s3
 from app.modules.master_cv.services.helpers.text_extractor import extract_pdf
@@ -25,15 +25,15 @@ async def _process_cv_async(cv_id: str, s3_key: str):
 
             print("Embedding type:", type(embed))
 
-            cv_record = await session.get(MasterCV, cv_id)
-            cv_record.raw_text = raw_text
-            cv_record.parsed_data = structured
-            cv_record.status = "completed"
-            cv_record.embedding=embed
+            version_record = await session.get(MasterCVVersion, cv_id)
+            version_record.raw_text = raw_text
+            version_record.parsed_data = structured
+            version_record.status = CVStatus.COMPLETED
+            version_record.embedding=embed
             await session.commit()
         except Exception:
             await session.rollback()
-            cv_record = await session.get(MasterCV, cv_id)
-            cv_record.status = "failed"
+            version_record = await session.get(MasterCVVersion, cv_id)
+            version_record.status = CVStatus.FAILED
             await session.commit()
             raise

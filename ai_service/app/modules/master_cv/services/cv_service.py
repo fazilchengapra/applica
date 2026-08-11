@@ -1,19 +1,15 @@
 from fastapi import Depends
 from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.db.session import get_db
-from datetime import datetime, timezone
 import uuid
 
 # model
-from app.modules.master_cv.models import MasterCV
+from app.modules.master_cv.models import MasterCV, MasterCVVersion, CVStatus
 
 # s3 service
-from .s3_service import upload_pdf_to_s3, delete_pdf_from_s3, _pdf_exists
-
-# services
-from .helpers.text_extractor import extract_pdf
-from .helpers.cv_structor import structure_cv_text
+from .s3_service import upload_pdf_to_s3
 
 from .helpers.validator import validate_file_size, validate_pdf
 
@@ -24,60 +20,91 @@ from ..tasks import process_cv_task
 from ..exceptions import CVNotfoundError
 
 
-async def soft_delete(session: AsyncSession, cv_id: str, user_id: str) -> None:
-    cv_record = await session.get(MasterCV, cv_id)
-
-    if cv_record is None or cv_record.deleted_at is not None:
-        raise CVNotfoundError("can't find any cv")
-
-    if str(cv_record.user_id) != str(user_id):
-        raise CVNotfoundError("can't find any cv")
-
-    cv_record.is_deleted = True
-    cv_record.deleted_at = datetime.now(timezone.utc)
-
-    await session.commit()
-
-
 # main services :-
 async def process_cv_upload(
     filename: str,
     contents: bytes,
     user_id: str,
     session: AsyncSession,
-) -> Path:
+) -> uuid.UUID:
     validate_file_size(contents)
     validate_pdf(contents)
     object_key = upload_pdf_to_s3(contents, filename)
 
     cv_record = MasterCV(
         user_id=user_id,
-        s3_key=object_key,
     )
 
     session.add(cv_record)
 
+    # get cv_record.id without committing
+    await session.flush()
+
+    version_record = MasterCVVersion(
+        master_cv_id=cv_record.id,
+        version=1,
+        is_current=True,
+        s3_key=object_key,
+        status=CVStatus.PENDING,
+    )
+
+    session.add(version_record)
+
     await session.commit()
     await session.refresh(cv_record)
+    await session.refresh(version_record)
 
-    print(f"cv id is: ${cv_record.id} s3_key is {cv_record.s3_key}")
-    process_cv_task.delay(str(cv_record.id), str(cv_record.s3_key))
-    return object_key
+    print(f"cv  version id is: ${version_record.id} s3_key is {version_record.s3_key}")
+    process_cv_task.delay(str(version_record.id), str(version_record.s3_key))
+    return version_record.id
 
 
 async def process_cv_update(
     filename: str,
     contents: bytes,
-    cv_id: uuid.UUID,
+    master_cv_id: uuid.UUID,
     user_id: str,
     session: AsyncSession,
 ) -> Path:
+    master_cv_record = await session.scalar(
+        select(MasterCV).where(MasterCV.id == master_cv_id, MasterCV.user_id == user_id)
+    )
+    print('master_cv_record: ', master_cv_record)
+    if not master_cv_record:
+        raise CVNotfoundError("CV not found")
+
+    cv_version_record = await session.scalar(
+        select(MasterCVVersion).where(
+            MasterCVVersion.master_cv_id == master_cv_record.id,
+            MasterCVVersion.is_current.is_(True),
+        )
+    )
+
+    if not cv_version_record:
+        raise CVNotfoundError("CV not found")
+
+    cv_version_record.is_current = False
+
+    session.add(cv_version_record)
+
     validate_file_size(contents)
     validate_pdf(contents)
 
-    print("user_id", user_id, "master_cv", cv_id)
-
-    await soft_delete(session, cv_id, user_id)
     new_object_key = upload_pdf_to_s3(contents, filename)
 
-    return new_object_key
+    new_version_record = MasterCVVersion(
+        master_cv_id=master_cv_id,
+        version=cv_version_record.version + 1,
+        is_current=True,
+        s3_key=new_object_key,
+        status=CVStatus.PENDING,
+    )
+
+    session.add(new_version_record)
+
+    await session.commit()
+    await session.refresh(cv_version_record)
+    await session.refresh(new_version_record)
+
+    process_cv_task.delay(str(new_version_record.id), str(new_version_record.s3_key))
+    return new_version_record.id

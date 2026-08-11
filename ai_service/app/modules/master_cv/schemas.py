@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 class CVUploadResponse(BaseModel):
     details: str
     filename: str
-    object_key: str
+    version_id: str
 
 
 class ContactInfo(BaseModel):

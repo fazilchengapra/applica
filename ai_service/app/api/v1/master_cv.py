@@ -35,7 +35,7 @@ async def upload_master_cv(
     content = await file.read()
 
     try:
-        object_key = await process_cv_upload(
+        version_id = await process_cv_upload(
             file.filename, content, current_user_id, session=session
         )
     except (InvalidPDFError, FileTooLargeError) as e:
@@ -44,7 +44,7 @@ async def upload_master_cv(
         raise HTTPException(status_code=502, detail=str(e))
 
     return CVUploadResponse(
-        details="success", filename=file.filename, object_key=object_key
+        details="success", filename=file.filename, version_id=str(version_id)
     )
 
 
@@ -62,7 +62,7 @@ async def update_master_cv(
     content = await file.read()
 
     try:
-        object_key = await process_cv_update(
+        version_id = await process_cv_update(
             file.filename, content, cv_id, current_user_id, session
         )
     except (InvalidPDFError, FileTooLargeError, CVNotfoundError) as e:
@@ -74,14 +74,14 @@ async def update_master_cv(
         raise HTTPException(status_code=404, detail=str(e))
 
     return CVUploadResponse(
-        details="success", filename=file.filename, object_key=object_key
+        details="success", filename=file.filename, version_id=str(version_id)
     )
 
 
-@router.delete("/{object_key:path}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_master_cv(object_key: str):
+# @router.delete("/{object_key:path}", status_code=status.HTTP_204_NO_CONTENT)
+# async def delete_master_cv(object_key: str):
 
-    try:
-        delete_pdf_from_s3(object_key)
-    except S3ObjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+#     try:
+#         delete_pdf_from_s3(object_key)
+#     except S3ObjectNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
