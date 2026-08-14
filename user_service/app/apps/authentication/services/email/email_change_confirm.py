@@ -1,4 +1,5 @@
 from ...utils import token
+from django.db import transaction
 from app.apps.authentication.models import VerificationToken
 from ...constants import verification_type, cooldown, email
 from django.utils import timezone
@@ -6,12 +7,16 @@ from app.apps.authentication.exceptions.email import (
     EmailChangeTokenInvalidError,
     EmailInUseError,
 )
+from app.apps.notifications.constants.notification_type import NotificationType
 from django.core.cache import cache
 from ...utils.cooldown import get_cool_down
 from app.apps.users.models import User
 
 # notification
-from app.apps.notifications.services.email_notification import email_change_notification
+from app.apps.notifications.services.helper.email_notification_helper import (
+    email_change_notification_helper,
+)
+from app.apps.notifications.tasks import publish_notification_event_task
 
 
 def confirm_email_change(user, raw_token: str) -> bool:
@@ -71,6 +76,8 @@ def confirm_email_change(user, raw_token: str) -> bool:
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_OLD, user.id))
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
 
-    email_change_notification(user=user, new_email=new_email, old_email=old_mail)
-
+    data = email_change_notification_helper(
+        user=user, new_email=new_email, old_email=old_mail
+    )
+    transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
     return True

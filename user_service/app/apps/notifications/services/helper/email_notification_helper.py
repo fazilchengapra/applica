@@ -5,7 +5,7 @@ from app.apps.notifications.constants.notification_type import NotificationType
 from app.apps.common.utils.mask import mask_email
 
 
-def email_change_notification(*, user, new_email, old_email):
+def email_change_notification_helper(*, user, new_email, old_email):
 
     metadata = {
         "new_email": mask_email(new_email),
@@ -13,13 +13,13 @@ def email_change_notification(*, user, new_email, old_email):
         "changed_via": "user_initiated",
     }
 
-    return create_and_push(
-        user=user,
-        type=NotificationType.PHONE_VERIFIED,
-        title="Email Changed Successfully!",
-        body="Your account email address is changed success",
-        metadata=metadata,
-    )
+    return {
+        "event": NotificationType.EMAIL_CHANGED,
+        "user": user,
+        "title": "Email Changed Successfully!",
+        "body": "Your account email address is changed successfully",
+        "metadata": metadata,
+    }
 
 
 def email_verified_notification(*, user, email):

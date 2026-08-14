@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.db import transaction
 
 from app.apps.users.models import User
 from ...exceptions.email import (
@@ -16,6 +17,8 @@ from datetime import timedelta
 from django.utils import timezone
 from ...constants import email
 from app.apps.authentication.tasks import send_email_verification_task
+from app.apps.notifications.tasks import publish_notification_event_task
+from app.apps.notifications.constants.notification_type import NotificationType
 
 
 def request_email_change(user, new_email: str) -> None:
@@ -56,7 +59,9 @@ def request_email_change(user, new_email: str) -> None:
 
     raw_old_token = token.generate_raw_token()
     raw_new_token = token.generate_raw_token()
-    expires_at = timezone.now() + timedelta(minutes=email.EMAIL_CHANGE_TOKEN_TTL_MINUTES)
+    expires_at = timezone.now() + timedelta(
+        minutes=email.EMAIL_CHANGE_TOKEN_TTL_MINUTES
+    )
 
     VerificationToken.objects.create(
         user=user,
@@ -79,15 +84,25 @@ def request_email_change(user, new_email: str) -> None:
         new_email,
         timeout=email.EMAIL_CHANGE_TOKEN_TTL_MINUTES * 60,
     )
-    cache.set(
-        cooldown_key, True, timeout=email.EMAIL_CHANGE_COOLDOWN_SECONDS
-    )
+
+    cache.set(cooldown_key, True, timeout=email.EMAIL_CHANGE_COOLDOWN_SECONDS)
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_OLD, user.id))
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
 
+    # in your service, after transaction commits
     send_email_verification_task.delay(
         user.id, raw_old_token, email_change=True
     )  # defaults to user.email
+
     send_email_verification_task.delay(
         user.id, raw_new_token, email=new_email, email_change=True
+    )
+    transaction.on_commit(
+        lambda: publish_notification_event_task.delay(
+            event_type=NotificationType.EMAIL_CHANGED,
+            user_id=str(user.id),
+            title="Your Password Change Request Succeed Please Check Your Mail",
+            body="Your account password rest link sent both new and old mail!",
+            meta_data={"test": "for testing"},
+        )
     )

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from django.db import transaction
 
 from app.apps.users.models import User
 from app.apps.authentication.models.verification_token import VerificationToken
@@ -13,9 +14,10 @@ from ...utils import token
 from ...exceptions.token import TokenInvalidError, TokenExpiredError
 
 # notifications
-from app.apps.notifications.services.password_notification import (
-    password_reset_notification,
+from app.apps.notifications.services.helper.password_notification_helper import (
+    password_reset_notification_helper,
 )
+from app.apps.notifications.tasks import publish_notification_event_task
 
 
 def reset_password(raw_token: str, new_password: str) -> None:
@@ -44,6 +46,7 @@ def reset_password(raw_token: str, new_password: str) -> None:
         record.used_at = timezone.now()
         record.save(update_fields=["used_at"])
 
-        password_reset_notification(user=user)
+        data = password_reset_notification_helper(user=user)
+        transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
 
     cache.delete(get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id))

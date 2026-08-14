@@ -14,7 +14,7 @@ from app.apps.authentication.exceptions.email import (
 from app.apps.authentication.utils.token import hash_token
 
 # notification
-from app.apps.notifications.services.email_notification import email_verified_notification
+from app.apps.notifications.services.helper.email_notification_helper import email_verified_notification
 
 
 def verify_email(*,raw_token: str) -> None:
