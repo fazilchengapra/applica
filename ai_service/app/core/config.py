@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     # embed
     VOYAGE_API_KEY: str
 
+    # adzuna
+    ADZUNA_APP_ID: str
+    ADZUNA_APP_KEY: str
+    ADZUNA_BASE_URL: str = "https://api.adzuna.com/v1/api"
+    ADZUNA_COUNTRY: str = "in"
+
     class Config:
         env_file = ".env"
 

@@ -2,12 +2,12 @@ from celery import Celery
 from app.core.config import settings
 
 celery_app = Celery(
-    "ai_service",                              # app name — distinct from user_service's "app"
+    "ai_service",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
-        "app.modules.master_cv.tasks",         # register task modules explicitly
-        # "app.modules.job_matching.tasks",    # add as you build more
+        "app.modules.master_cv.tasks",
+        "app.modules.jobs.tasks",
     ],
 )
 
