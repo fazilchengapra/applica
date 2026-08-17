@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     ADZUNA_BASE_URL: str = "https://api.adzuna.com/v1/api"
     ADZUNA_COUNTRY: str = "in"
 
+    # serpapi
+    SERPAPI_KEY: str
+
+    VERIFICATION_APPROVE_THRESHOLD: str
+
     class Config:
         env_file = ".env"
 
