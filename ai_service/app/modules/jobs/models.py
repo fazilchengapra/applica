@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     UniqueConstraint,
     Index,
+    ForeignKey,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
@@ -37,6 +38,9 @@ class RawJob(Base):
 
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     company_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # company_id: Mapped[uuid.UUID | None] = mapped_column(
+    #     UUID(as_uuid=True), ForeignKey("companies.id"), nullable=True, index=True
+    # )
     location_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     employment_type_raw: Mapped[str | None] = mapped_column(Text, nullable=True)

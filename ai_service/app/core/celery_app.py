@@ -8,6 +8,7 @@ celery_app = Celery(
     include=[
         "app.modules.master_cv.tasks",
         "app.modules.jobs.tasks",
+        "app.modules.companies.tasks",
     ],
 )
 

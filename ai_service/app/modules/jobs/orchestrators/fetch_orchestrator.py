@@ -4,19 +4,14 @@ from app.modules.jobs.services.ingestion_service import insert_raw_job
 from app.modules.jobs.exceptions import JobSourceUnavailableError
 
 async def run(source: str, query: str, db: AsyncSession):
-    adapter_cls = SOURCE_REGISTRY.get(source)
-    if adapter_cls is None:
-        raise ValueError(f"Unknown job source: {source}")
+    adapter = SOURCE_REGISTRY[source]()
+    raw_jobs = await adapter.fetch(query=query)
 
-    adapter = adapter_cls()
-    try:
-        raw_jobs = await adapter.fetch(query=query)
-    except JobSourceUnavailableError:
-        print(f"Fetch failed for source={source}, query={query}")
-        raise
-
+    inserted_count = 0
     for job in raw_jobs:
-        await insert_raw_job(db, job)
-    await db.commit()
+        was_inserted = await insert_raw_job(db, job)
+        if was_inserted:
+            inserted_count += 1
 
-    return len(raw_jobs)
+    await db.commit()
+    return inserted_count
