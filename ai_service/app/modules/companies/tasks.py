@@ -12,7 +12,6 @@ from app.modules.jobs.services.link_raw_jobs import link_raw_jobs_to_company
 async def _collect_pending_companies_async(batch_limit: int):
     async with get_celery_db_session() as db:
         groups = await collect_pending_companies(db, batch_limit=batch_limit)
-
         dispatched = 0
         for norm_name, group in groups.items():
             company, was_created = await get_or_create_company(
