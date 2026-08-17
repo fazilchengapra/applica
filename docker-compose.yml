@@ -88,6 +88,24 @@ services:
     depends_on:
       - redis
 
+  ai-flower:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.core.celery_app", "flower", "--port=5556"]
+    env_file:
+      - ./ai_service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_user:ai_pass@ai_postgres:5432/ai_service_db
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "5556:5556"
+    depends_on:
+      - redis
+      - ai_postgres
+
   ai_postgres:
     image: pgvector/pgvector:pg16   # pgvector-enabled image, not plain postgres
     environment:

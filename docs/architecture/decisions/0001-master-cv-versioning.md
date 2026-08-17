@@ -69,12 +69,6 @@ User updates CV
 → on success: transaction sets old version's `is_current = false`, new version's `is_current = true`, `status = completed`
 → on failure: new version's `status = failed`, old version remains current
 
-## Open Question
-
-Retention policy for old versions and their S3 objects — keep indefinitely,
-or prune after N versions / a time window. Affects storage cost and whether
-`master_cv_versions` needs its own `deleted_at`.
-
 ## Implementation Status
 
 Implemented and need a test
