@@ -1,4 +1,3 @@
-# app/modules/jobs/models.py
 import uuid
 from datetime import datetime
 

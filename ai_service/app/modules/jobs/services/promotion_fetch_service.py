@@ -1,8 +1,6 @@
-# app/modules/jobs/services/promotion_fetch_service.py
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.jobs.models import RawJob
+from app.modules.jobs.models.raw_table import RawJob
 
 
 # fetch_and_lock_verified_pending_jobs fetches a batch of verified pending jobs and locks them for processing.

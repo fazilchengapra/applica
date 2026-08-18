@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.jobs.models import RawJob
+from app.modules.jobs.models.raw_table import RawJob
 from app.modules.jobs.schemas import RawJobInput
 from app.modules.jobs.utils.hashing import compute_dedup_hash
 

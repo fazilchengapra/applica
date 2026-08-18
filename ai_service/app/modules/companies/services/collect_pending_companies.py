@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.jobs.models import RawJob
+from app.modules.jobs.models.raw_table import RawJob
 from app.modules.companies.utils.normalize import group_raw_jobs_by_company
 
 
