@@ -1,6 +1,7 @@
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.jobs.models.raw_table import RawJob
+from datetime import datetime, UTC
 
 
 # fetch_and_lock_verified_pending_jobs fetches a batch of verified pending jobs and locks them for processing.
@@ -28,11 +29,10 @@ async def fetch_and_lock_verified_pending_jobs(
     ids = [row.id for row in rows]
 
     await session.execute(
-        update(RawJob).where(RawJob.id.in_(ids)).values(processing_status="processing")
+        update(RawJob).where(RawJob.id.in_(ids)).values(processing_status="processing", processed_at=datetime.now(UTC))
     )
     await session.commit()
 
-    # refresh in-memory objects to reflect committed status
     for row in rows:
         row.processing_status = "processing"
 
