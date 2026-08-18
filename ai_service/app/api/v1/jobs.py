@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.modules.jobs.tasks import fetch_jobs_task
+from ai_service.app.modules.jobs.tasks.tasks import fetch_jobs_task
 from app.modules.jobs.schemas import FetchJobsRequest
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
