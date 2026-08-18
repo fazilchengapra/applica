@@ -10,9 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 async def insert_raw_job(db: AsyncSession, job: RawJobInput) -> bool:
-    """
-    Returns True if the job was inserted, False if it was a duplicate (skipped).
-    """
+
     dedup_hash = compute_dedup_hash(
         title=job.title or "",
         company=job.company_name or "",

@@ -5,10 +5,23 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 LEGAL_SUFFIXES = [
-    r"\bincorporated\b", r"\binc\b", r"\bcorporation\b", r"\bcorp\b",
-    r"\bllc\b", r"\bllp\b", r"\bltd\b", r"\blimited\b",
-    r"\bco\b", r"\bcompany\b", r"\bgmbh\b", r"\bplc\b",
-    r"\bpvt\b", r"\bpte\b", r"\bpty\b", r"\bs\.a\.\b", r"\bab\b",
+    r"\bincorporated\b",
+    r"\binc\b",
+    r"\bcorporation\b",
+    r"\bcorp\b",
+    r"\bllc\b",
+    r"\bllp\b",
+    r"\bltd\b",
+    r"\blimited\b",
+    r"\bco\b",
+    r"\bcompany\b",
+    r"\bgmbh\b",
+    r"\bplc\b",
+    r"\bpvt\b",
+    r"\bpte\b",
+    r"\bpty\b",
+    r"\bs\.a\.\b",
+    r"\bab\b",
 ]
 
 
@@ -27,13 +40,13 @@ def normalize_company_name(raw: str) -> str:
 @dataclass
 class CompanyGroup:
     normalized_name: str
-    display_name: str          # first-seen raw name, for showing to admin
+    display_name: str
     raw_job_ids: list[str]
-    source_types: set[str]     # e.g. {"scrape", "ats_direct"} — useful for trust scoring later
+    source_types: set[str]
 
 
 def group_raw_jobs_by_company(raw_jobs: list[dict]) -> dict[str, CompanyGroup]:
-    
+
     groups: dict[str, CompanyGroup] = {}
 
     for job in raw_jobs:

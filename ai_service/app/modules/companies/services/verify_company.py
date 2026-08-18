@@ -16,7 +16,6 @@ from app.modules.companies.exceptions import (
 from app.modules.companies.llm_client import get_structured_llm
 
 
-# ---- helper service: fetch the company row ----
 async def get_company_or_raise(session: AsyncSession, company_id: UUID) -> Company:
     company = await session.get(Company, company_id)
     if company is None:
@@ -24,12 +23,11 @@ async def get_company_or_raise(session: AsyncSession, company_id: UUID) -> Compa
     return company
 
 
-# ---- helper service: gather evidence (cache-aware) ----
 async def gather_evidence(company: Company) -> EvidenceBundle:
     # if company.verification_evidence is not None:
     #     print("Using cached evidence for company:", company.normalized_name)
     #     return EvidenceBundle.model_validate(company.verification_evidence)
-    
+
     website_res, linkedin_res, reddit_res = await fetch_search_results(
         company.normalized_name
     )
@@ -38,8 +36,9 @@ async def gather_evidence(company: Company) -> EvidenceBundle:
     )
 
 
-# ---- helper service: LLM decision ----
-async def decide_verification(company_name: str, evidence: EvidenceBundle) -> VerificationResult:
+async def decide_verification(
+    company_name: str, evidence: EvidenceBundle
+) -> VerificationResult:
     llm = get_structured_llm(output_schema=VerificationResult)
 
     prompt = (
@@ -58,17 +57,15 @@ async def decide_verification(company_name: str, evidence: EvidenceBundle) -> Ve
         raise VerificationDecisionError(f"LLM decision failed: {e}") from e
 
 
-# ---- helper service: apply verdict + persist ----
 async def apply_verdict(
     session: AsyncSession,
     company: Company,
     evidence: EvidenceBundle,
     result: VerificationResult,
 ) -> Company:
-    if (
-        result.confidence >= float(settings.VERIFICATION_APPROVE_THRESHOLD)
-        and result.verdict in ("approved", "rejected")
-    ):
+    if result.confidence >= float(
+        settings.VERIFICATION_APPROVE_THRESHOLD
+    ) and result.verdict in ("approved", "rejected"):
         final_status = result.verdict
     else:
         final_status = "pending_review"
@@ -86,10 +83,9 @@ async def apply_verdict(
     return company
 
 
-# ---- orchestrator: coordinates the full flow ----
 async def verify_company(session: AsyncSession, company_id: UUID) -> Company:
     company = await get_company_or_raise(session, company_id)
     evidence = await gather_evidence(company)
     result = await decide_verification(company.normalized_name, evidence)
-    print('result is : ', result)
+    print("result is : ", result)
     return await apply_verdict(session, company, evidence, result)

@@ -1,7 +1,7 @@
-# app/core/llm_client.py  (move here since it's now shared across modules)
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from app.core.config import settings
+
 
 def get_structured_llm(output_schema: type[BaseModel]) -> ChatOpenAI:
     llm = ChatOpenAI(
