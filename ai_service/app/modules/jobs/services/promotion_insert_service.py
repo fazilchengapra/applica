@@ -28,6 +28,7 @@ async def insert_structured_jobs(
 ) -> dict:
 
     inserted_count = 0
+    inserted_jobs: list[tuple] = []
     duplicate_ids = []
     processed_ids = []
 
@@ -63,7 +64,7 @@ async def insert_structured_jobs(
                 posted_at=parse_posted_at(structured.posted_at),
             )
             .on_conflict_do_nothing(index_elements=["dedup_hash"])
-            .returning(Job.id)
+            .returning(Job.id, Job.description)
         )
 
         result = await session.execute(stmt)
@@ -72,7 +73,9 @@ async def insert_structured_jobs(
         if row is None:
             duplicate_ids.append(raw_job.id)
         else:
+            job_id, description = row
             inserted_count += 1
+            inserted_jobs.append((job_id, description))
             processed_ids.append(raw_job.id)
 
     if processed_ids:
@@ -90,4 +93,8 @@ async def insert_structured_jobs(
 
     await session.commit()
 
-    return {"inserted": inserted_count, "duplicates_at_insert": len(duplicate_ids)}
+    return {
+        "inserted": inserted_count,
+        "inserted_jobs": inserted_jobs,
+        "duplicates_at_insert": len(duplicate_ids),
+    }

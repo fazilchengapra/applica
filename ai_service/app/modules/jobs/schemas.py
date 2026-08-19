@@ -64,3 +64,21 @@ class StructuredJob(BaseModel):
     salary_period: SalaryPeriod | None = None
 
     posted_at: str | None = Field(None, description="ISO 8601 date string, null if unparseable")
+
+
+from pydantic import BaseModel
+from enum import Enum
+
+
+class SkillType(str, Enum):
+    required = "required"
+    preferred = "preferred"
+
+
+class ExtractedSkill(BaseModel):
+    skill_name: str
+    skill_type: SkillType
+
+
+class ExtractedSkills(BaseModel):
+    skills: list[ExtractedSkill]
