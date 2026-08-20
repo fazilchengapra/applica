@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, Form
 import uuid
 from app.core.dependencies import get_current_user_id
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,11 +23,14 @@ from ...modules.master_cv.exceptions import (
     CVNotfoundError,
 )
 
+from pydantic import BaseModel
+
 router = APIRouter(prefix="/master-cv", tags=["master-cv"])
 
 
 @router.post("/", response_model=CVUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_master_cv(
+    target_role: str = Form(...),
     file: UploadFile = File(...),
     current_user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
@@ -36,7 +39,11 @@ async def upload_master_cv(
 
     try:
         version_id = await process_cv_upload(
-            file.filename, content, current_user_id, session=session
+            file.filename,
+            content,
+            current_user_id,
+            session=session,
+            target_role=target_role,
         )
     except (InvalidPDFError, FileTooLargeError) as e:
         raise HTTPException(status_code=400, detail=str(e))

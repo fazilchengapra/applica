@@ -62,6 +62,10 @@ class MasterCVVersion(Base):
         ForeignKey("master_cvs.id", ondelete="CASCADE"),
         nullable=False,
     )
+    target_role: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
     embedding = Column(Vector(1024), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

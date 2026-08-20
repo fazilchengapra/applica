@@ -26,6 +26,7 @@ async def process_cv_upload(
     contents: bytes,
     user_id: str,
     session: AsyncSession,
+    target_role: str,
 ) -> uuid.UUID:
     validate_file_size(contents)
     validate_pdf(contents)
@@ -46,6 +47,7 @@ async def process_cv_upload(
         is_current=True,
         s3_key=object_key,
         status=CVStatus.PENDING,
+        target_role=target_role,
     )
 
     session.add(version_record)
@@ -69,7 +71,7 @@ async def process_cv_update(
     master_cv_record = await session.scalar(
         select(MasterCV).where(MasterCV.id == master_cv_id, MasterCV.user_id == user_id)
     )
-    print('master_cv_record: ', master_cv_record)
+    print("master_cv_record: ", master_cv_record)
     if not master_cv_record:
         raise CVNotfoundError("CV not found")
 
