@@ -8,6 +8,8 @@ from app.modules.jobs.services.promotion_insert_service import insert_structured
 
 from app.modules.jobs.services.promotion_structuring import structure_batch
 from app.modules.jobs.services.job_skills_service import generate_and_insert_skills
+from app.modules.jobs.services.job_chunking_service import chunk_and_embed_job
+
 
 async def run(session: AsyncSession, batch_size: int = 50) -> dict:
     locked_rows = await fetch_and_lock_verified_pending_jobs(session, batch_size)
@@ -19,10 +21,13 @@ async def run(session: AsyncSession, batch_size: int = 50) -> dict:
     insert_result = await insert_structured_jobs(session, structured_pairs)
 
     skills_inserted = 0
+    chunks_inserted = 0
+
     for job_id, description in insert_result["inserted_jobs"]:
         skills_inserted += await generate_and_insert_skills(
             session, job_id, description
         )
+        chunks_inserted += await chunk_and_embed_job(session, job_id, description)
 
     return {
         "fetched": len(locked_rows),
@@ -31,4 +36,5 @@ async def run(session: AsyncSession, batch_size: int = 50) -> dict:
         "failed": len(survivors) - len(structured_pairs),
         "inserted": insert_result["inserted"],
         "duplicates_at_insert": insert_result["duplicates_at_insert"],
+        "chunks_inserted": chunks_inserted,
     }
