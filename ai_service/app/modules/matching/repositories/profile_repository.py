@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.master_cv.models.master_cv import MasterCVVersion, MasterCV, CVStatus
+from app.modules.jobs.models.skills import Skill
+from app.modules.master_cv.models.cv_skills import CVSkill
 
 
 async def get_current_completed_cv(
@@ -29,3 +31,13 @@ async def get_current_completed_cv(
     result = await db.execute(query)
 
     return result.scalar_one_or_none()
+
+
+async def get_skills_for_cv(db: AsyncSession, cv_id: UUID) -> set[str]:
+    query = (
+        select(Skill.name)
+        .join(CVSkill, CVSkill.skill_id == Skill.id)
+        .where(CVSkill.cv_id == cv_id)
+    )
+    result = await db.execute(query)
+    return {row[0].lower() for row in result.all()}

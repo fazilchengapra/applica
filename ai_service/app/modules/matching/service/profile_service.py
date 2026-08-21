@@ -6,6 +6,7 @@ from app.modules.matching.schemas.user_profile import UserProfile
 from app.modules.matching.exceptions import UserProfileNotFoundError
 from app.modules.matching.repositories.profile_repository import (
     get_current_completed_cv,
+    get_skills_for_cv,
 )
 
 
@@ -24,6 +25,11 @@ async def get_user_profile(
             f"No completed current CV found for user {user_id}"
         )
 
+    skills = await get_skills_for_cv(db, cv.id)
+
     return UserProfile(
-        user_id=user_id, target_role=cv.target_role, cv_embedding=cv.embedding
+        user_id=user_id,
+        target_role=cv.target_role,
+        cv_embedding=cv.embedding,
+        skills=skills,
     )

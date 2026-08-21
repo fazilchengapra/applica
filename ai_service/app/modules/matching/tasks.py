@@ -1,7 +1,5 @@
 import asyncio
-import uuid
 import logging
-from uuid import UUID
 
 from app.core.celery_app import celery_app
 from app.db.celery_db import get_celery_db_session
@@ -10,10 +8,14 @@ logger = logging.getLogger(__name__)
 
 from app.modules.matching.service.profile_service import get_user_profile
 from app.modules.matching.service.filter_jobs import prefilter_jobs
-from app.modules.matching.repositories.vector_repository import vector_retrieve, get_top_chunks_for_reranking
+from app.modules.matching.repositories.vector_repository import (
+    vector_retrieve,
+    get_top_chunks_for_reranking,
+)
 from app.modules.matching.repositories.skill_repository import lexical_score
 from app.modules.matching.service.fusion import reciprocal_rank_fusion
 from app.modules.matching.service.reranking_service import rerank_with_llm
+
 
 @celery_app.task()
 def match_user_task(user_id: int):
@@ -31,9 +33,10 @@ async def _match_user(user_id: int):
                 return
 
             vector_results = await vector_retrieve(db, user.cv_embedding, job_ids)
-            # lexical_scores = await lexical_score(
-            #     db, user.skills, [j for j, _ in vector_results]
-            # )
+            lexical_scores = await lexical_score(
+                db, user.skills, [j for j, _ in vector_results]
+            )
+            logger.info("lexical_scores: %s", lexical_scores)
             # top_20 = reciprocal_rank_fusion(vector_results, lexical_scores)
 
             # chunks = await get_top_chunks_for_reranking(
