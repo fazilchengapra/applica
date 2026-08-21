@@ -25,7 +25,5 @@ async def get_user_profile(
         )
 
     return UserProfile(
-        user_id=user_id,
-        target_role=cv.target_role,
-        cv_embedding= cv.embedding
+        user_id=user_id, target_role=cv.target_role, cv_embedding=cv.embedding
     )

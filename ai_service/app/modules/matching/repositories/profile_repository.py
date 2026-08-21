@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.master_cv.models import MasterCVVersion, MasterCV, CVStatus
+from app.modules.master_cv.models.master_cv import MasterCVVersion, MasterCV, CVStatus
 
 
 async def get_current_completed_cv(

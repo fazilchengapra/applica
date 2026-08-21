@@ -6,7 +6,7 @@ from app.db.session import get_db
 import uuid
 
 # model
-from app.modules.master_cv.models import MasterCV, MasterCVVersion, CVStatus
+from app.modules.master_cv.models.master_cv import MasterCV, MasterCVVersion, CVStatus
 
 # s3 service
 from .s3_service import upload_pdf_to_s3

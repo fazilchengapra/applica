@@ -2,12 +2,13 @@ import asyncio
 from app.core.celery_app import celery_app
 from app.db.celery_db import CelerySessionLocal
 
-from app.modules.master_cv.models import MasterCVVersion, CVStatus
+from app.modules.master_cv.models.master_cv import MasterCVVersion, CVStatus
 
 from app.modules.master_cv.services.helpers.s3_downloader import download_pdf_from_s3
 from app.modules.master_cv.services.helpers.text_extractor import extract_pdf
 from app.modules.master_cv.services.helpers.cv_structor import structure_cv_text
 from app.modules.master_cv.services.helpers.embedder import embed_cv_text
+from app.modules.master_cv.services.cv_skill_service import generate_and_insert_skills
 
 
 @celery_app.task(name="master_cv.process_cv", bind=True, max_retries=3)
@@ -22,14 +23,13 @@ async def _process_cv_async(cv_id: str, s3_key: str):
             raw_text = extract_pdf(pdf_bytes)
             structured = structure_cv_text(raw_text)
             embed = await embed_cv_text(raw_text)
-
-            print("Embedding type:", type(embed))
+            await generate_and_insert_skills(session, cv_id, raw_text)
 
             version_record = await session.get(MasterCVVersion, cv_id)
             version_record.raw_text = raw_text
             version_record.parsed_data = structured
             version_record.status = CVStatus.COMPLETED
-            version_record.embedding=embed
+            version_record.embedding = embed
             await session.commit()
         except Exception:
             await session.rollback()
