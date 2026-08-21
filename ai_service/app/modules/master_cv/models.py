@@ -80,7 +80,7 @@ class MasterCVVersion(Base):
             values_callable=lambda enum_class: [e.value for e in enum_class],
         ),
         nullable=False,
-        default=CVStatus.PENDING,
+        default=CVStatus.PENDING.value,
     )
 
     created_at: Mapped["datetime"] = mapped_column(server_default=func.now())

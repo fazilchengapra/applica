@@ -9,6 +9,7 @@ celery_app = Celery(
         "app.modules.master_cv.tasks",
         "app.modules.jobs.tasks",
         "app.modules.companies.tasks",
+        "app.modules.matching.tasks",
     ],
 )
 

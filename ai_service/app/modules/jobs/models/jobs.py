@@ -138,7 +138,7 @@ class Job(Base):
     )
 
     status: Mapped[JobStatus] = mapped_column(
-        default=JobStatus.ACTIVE,
+        default=JobStatus.ACTIVE.value,
         nullable=False,
         index=True,
     )

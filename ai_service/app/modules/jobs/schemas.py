@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from .constants import SourceType
+from enum import Enum
 
 
 class FetchJobsRequest(BaseModel):
@@ -13,6 +14,7 @@ class FetchJobsRequest(BaseModel):
         3, ge=1, le=10, description="Max pages to fetch from the source"
     )
 
+
 class RawJobInput(BaseModel):
     source_type: SourceType
     source_name: str
@@ -24,9 +26,6 @@ class RawJobInput(BaseModel):
     location_raw: str | None = None
     salary_raw: str | None = None
     posted_at_raw: str | None = None
-
-from pydantic import BaseModel, Field
-from enum import Enum
 
 
 class RemoteType(str, Enum):
@@ -63,7 +62,9 @@ class StructuredJob(BaseModel):
     salary_currency: str | None = Field(None, description="ISO 4217, e.g. USD")
     salary_period: SalaryPeriod | None = None
 
-    posted_at: str | None = Field(None, description="ISO 8601 date string, null if unparseable")
+    posted_at: str | None = Field(
+        None, description="ISO 8601 date string, null if unparseable"
+    )
 
 
 from pydantic import BaseModel
