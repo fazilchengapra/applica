@@ -1,5 +1,6 @@
 import enum
 import uuid
+from typing import TYPE_CHECKING
 from decimal import Decimal
 from datetime import datetime, timezone
 
@@ -15,6 +16,9 @@ from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.modules.matching.models import JobMatch
 
 
 class RemoteType(str, enum.Enum):
@@ -142,6 +146,8 @@ class Job(Base):
         nullable=False,
         index=True,
     )
+
+    matches: Mapped[list["JobMatch"]] = relationship("JobMatch", back_populates="job")
 
     posted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),

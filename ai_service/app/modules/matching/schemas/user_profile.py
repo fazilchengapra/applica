@@ -6,3 +6,4 @@ class UserProfile(BaseModel):
     target_role: str | None
     cv_embedding: list[float] | None
     skills: set[str]
+    cv_text: str

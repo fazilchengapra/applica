@@ -15,6 +15,7 @@ from app.modules.matching.repositories.vector_repository import (
 from app.modules.matching.repositories.skill_repository import lexical_score
 from app.modules.matching.service.fusion import reciprocal_rank_fusion
 from app.modules.matching.service.reranking_service import rerank_with_llm
+from app.modules.matching.service.save_matches_service import save_matches
 
 
 @celery_app.task()
@@ -36,22 +37,22 @@ async def _match_user(user_id: int):
             lexical_scores = await lexical_score(
                 db, user.skills, [j for j, _ in vector_results]
             )
-            logger.info("lexical_scores: %s", lexical_scores)
-            # top_20 = reciprocal_rank_fusion(vector_results, lexical_scores)
 
-            # chunks = await get_top_chunks_for_reranking(
-            #     db, user.cv_embedding, [j for j, _ in top_20]
-            # )
-            # evaluated = [
-            #     (job_id, await rerank_with_llm(user.cv_text, chunks[job_id]))
-            #     for job_id, _ in top_20
-            #     if job_id in chunks
-            # ]
-            # print(evaluated)
-            # await save_matches(db, user_id, evaluated)
-            # logger.info(f"Matched user {user_id} against {len(evaluated)} jobs")
+            top_20 = reciprocal_rank_fusion(vector_results, lexical_scores)
 
-        except Exception:
+            chunks = await get_top_chunks_for_reranking(
+                db, user.cv_embedding, [j for j, _ in top_20]
+            )
+            evaluated = [
+                (job_id, await rerank_with_llm(user.cv_text, chunks[job_id]))
+                for job_id, _ in top_20
+                if job_id in chunks
+            ]
+            logger.info("evaluated: %s", evaluated)
+            await save_matches(db, user_id, evaluated)
+            logger.info(f"Matched user {user_id} against {len(evaluated)} jobs")
+
+        except Exception as e:
             await db.rollback()
-            logger.exception(f"Matching failed for user {user_id}")
+            logger.exception(f"Matching failed for user {user_id} error is: {e}")
             raise

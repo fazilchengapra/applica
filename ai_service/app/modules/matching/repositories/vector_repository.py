@@ -36,7 +36,7 @@ async def get_top_chunks_for_reranking(
     db: AsyncSession, cv_vector: list[float], job_ids: list[UUID], n_chunks: int = 3
 ):
     query = text("""
-        SELECT jc.job_id, jc.chunk_text, jc.embedding <=> :cv_vector AS distance
+        SELECT jc.job_id, jc.content, jc.embedding <=> :cv_vector AS distance
         FROM job_chunks jc
         WHERE jc.job_id = ANY(:job_ids)
         ORDER BY jc.job_id, distance
@@ -46,5 +46,5 @@ async def get_top_chunks_for_reranking(
     for row in result.all():
         chunks_by_job.setdefault(row.job_id, [])
         if len(chunks_by_job[row.job_id]) < n_chunks:
-            chunks_by_job[row.job_id].append(row.chunk_text)
+            chunks_by_job[row.job_id].append(row.content)
     return chunks_by_job

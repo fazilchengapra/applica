@@ -32,4 +32,5 @@ async def get_user_profile(
         target_role=cv.target_role,
         cv_embedding=cv.embedding,
         skills=skills,
+        cv_text=cv.raw_text,
     )

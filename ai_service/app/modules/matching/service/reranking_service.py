@@ -1,12 +1,5 @@
 from app.core.llm_client import get_structured_llm
-from pydantic import BaseModel
-
-
-class MatchEvaluation(BaseModel):
-    relevance_score: float  # 0-1
-    reasoning: str
-    key_matches: list[str]
-    key_gaps: list[str]
+from app.modules.matching.schemas.match_evaluation import MatchEvaluation
 
 
 async def rerank_with_llm(cv_text: str, job_chunks: list[str]) -> MatchEvaluation:
