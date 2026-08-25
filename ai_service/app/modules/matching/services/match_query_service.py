@@ -47,13 +47,3 @@ async def update_match_status(
     await db.commit()
     await db.refresh(match)
     return match
-
-
-async def delete_match(db: AsyncSession, match_id: UUID, user_id: int) -> bool:
-    stmt = delete(JobMatch).where(
-        JobMatch.id == match_id,
-        JobMatch.user_id == user_id,
-    )
-    result = await db.execute(stmt)
-    await db.commit()
-    return result.rowcount > 0
