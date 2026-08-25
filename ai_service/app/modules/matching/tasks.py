@@ -6,16 +6,16 @@ from app.db.celery_db import get_celery_db_session
 
 logger = logging.getLogger(__name__)
 
-from app.modules.matching.service.profile_service import get_user_profile
-from app.modules.matching.service.filter_jobs import prefilter_jobs
+from app.modules.matching.services.profile_service import get_user_profile
+from app.modules.matching.services.filter_jobs import prefilter_jobs
 from app.modules.matching.repositories.vector_repository import (
     vector_retrieve,
     get_top_chunks_for_reranking,
 )
 from app.modules.matching.repositories.skill_repository import lexical_score
-from app.modules.matching.service.fusion import reciprocal_rank_fusion
-from app.modules.matching.service.reranking_service import rerank_with_llm
-from app.modules.matching.service.save_matches_service import save_matches
+from app.modules.matching.services.fusion import reciprocal_rank_fusion
+from app.modules.matching.services.reranking_service import rerank_with_llm
+from app.modules.matching.services.save_matches_service import save_matches
 
 
 @celery_app.task()
