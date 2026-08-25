@@ -18,6 +18,8 @@ async def save_matches(
                 job_id=job_id,
                 final_score=evaluation.relevance_score,
                 llm_reasoning=evaluation.reasoning,
+                key_matches=evaluation.key_matches,
+                key_gaps=evaluation.key_gaps,
             )
             .on_conflict_do_update(
                 index_elements=["user_id", "job_id"],
