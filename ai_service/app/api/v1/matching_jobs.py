@@ -1,4 +1,3 @@
-# app/modules/matching/router.py
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +13,7 @@ from app.modules.matching.services import (
     update_match_status,
 )
 from app.modules.matching.tasks import match_user_task
+from app.dependencies.admin import require_admin
 
 router = APIRouter(prefix="/job-matches", tags=["matching"])
 
