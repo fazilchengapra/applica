@@ -1,1 +1,6 @@
-from .cv_template import CreateCVTemplateRequest, CreateCVTemplateResponse
+from .cv_template import (
+    CreateCVTemplateRequest,
+    CreateCVTemplateResponse,
+    CVTemplateAdminOut,
+    DeleteCVTemplateResponse,
+)
