@@ -27,6 +27,10 @@ class CVTemplate(Base):
         nullable=True,
     )
 
+    tex_hash: Mapped[str] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+
     tex: Mapped[str] = mapped_column(
         Text,
         nullable=False,
