@@ -3,8 +3,12 @@ FROM python:3.12-slim
 WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends postgresql-client \
-    libmagic1 && \
+    apt-get install -y --no-install-recommends \
+    postgresql-client \
+    libmagic1 \
+    texlive-latex-base \
+    texlive-latex-extra \
+    texlive-fonts-recommended && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
