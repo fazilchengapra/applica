@@ -99,7 +99,7 @@ def request_email_change(user, new_email: str) -> None:
     )
     transaction.on_commit(
         lambda: publish_notification_event_task.delay(
-            event_type=NotificationType.EMAIL_CHANGED,
+            event=NotificationType.EMAIL_CHANGED,
             user_id=str(user.id),
             title="Your Password Change Request Succeed Please Check Your Mail",
             body="Your account password rest link sent both new and old mail!",

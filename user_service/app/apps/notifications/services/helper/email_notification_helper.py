@@ -15,10 +15,10 @@ def email_change_notification_helper(*, user, new_email, old_email):
 
     return {
         "event": NotificationType.EMAIL_CHANGED,
-        "user": user,
+        "user_id": str(user.id),
         "title": "Email Changed Successfully!",
         "body": "Your account email address is changed successfully",
-        "metadata": metadata,
+        "meta_data": metadata,
     }
 
 
