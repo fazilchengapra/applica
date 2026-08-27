@@ -9,10 +9,11 @@ from app.modules.master_cv.services.cv_service import (
     process_cv_upload,
     process_cv_update,
 )
+from app.modules.master_cv.services.cv_stats_service import get_cv_stats
 from app.modules.master_cv.services.s3_service import delete_pdf_from_s3
 
 # schema
-from ...modules.master_cv.schemas import CVUploadResponse
+from ...modules.master_cv.schemas import CVUploadResponse, CVStatsResponse
 
 # exceptions
 from ...modules.master_cv.exceptions import (
@@ -83,6 +84,15 @@ async def update_master_cv(
     return CVUploadResponse(
         details="success", filename=file.filename, version_id=str(version_id)
     )
+
+
+@router.get("/stats", response_model=CVStatsResponse, status_code=status.HTTP_200_OK)
+async def get_master_cv_stats(
+    current_user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+):
+    stats = await get_cv_stats(current_user_id, session)
+    return CVStatsResponse(**stats)
 
 
 # @router.delete("/{object_key:path}", status_code=status.HTTP_204_NO_CONTENT)

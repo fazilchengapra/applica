@@ -54,3 +54,9 @@ class StructuredCV(BaseModel):
     projects: list[Project] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
+
+class CVStatsResponse(BaseModel):
+    total: int
+    ready: int
+    processing: int
+    failed: int

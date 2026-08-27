@@ -3,4 +3,5 @@ from .cv_template import (
     CreateCVTemplateResponse,
     CVTemplateAdminOut,
     DeleteCVTemplateResponse,
+    CVTemplatePublicOut
 )

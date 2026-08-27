@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     VERIFICATION_APPROVE_THRESHOLD: str
 
+    SNS_NOTIFICATIONS_TOPIC_ARN: str
+
     class Config:
         env_file = ".env"
 

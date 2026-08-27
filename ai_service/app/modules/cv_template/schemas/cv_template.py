@@ -50,3 +50,13 @@ class DeleteCVTemplateResponse(BaseModel):
 class DeleteCVTemplateResponse(BaseModel):
     message: str
     id: UUID
+
+
+class CVTemplatePublicOut(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str | None
+    image_url: str | None = None
