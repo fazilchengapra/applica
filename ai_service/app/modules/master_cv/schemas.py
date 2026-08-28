@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+from uuid import UUID
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
 class CVUploadResponse(BaseModel):
     details: str
@@ -60,3 +62,15 @@ class CVStatsResponse(BaseModel):
     ready: int
     processing: int
     failed: int
+
+class GetCVSResponse(BaseModel):
+    id: UUID
+    version: int
+    master_cv_id: UUID
+    target_role: str
+    is_current: bool
+    s3_key: str
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

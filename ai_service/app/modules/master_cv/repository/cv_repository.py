@@ -1,3 +1,4 @@
+from uuid import UUID
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.master_cv.repository.master_cv_repo import get_master_cv_id_by_user_id
@@ -28,3 +29,13 @@ async def get_cv_status_counts(user_id: str, session: AsyncSession) -> dict:
         "processing": row.processing,
         "failed": row.failed,
     }
+
+
+async def get_all_cv_versions(master_cv_id: UUID, session: AsyncSession):
+    cvs = (
+        await session.scalars(
+            select(MasterCVVersion).where(MasterCVVersion.master_cv_id == master_cv_id)
+        )
+    ).all()
+
+    return cvs

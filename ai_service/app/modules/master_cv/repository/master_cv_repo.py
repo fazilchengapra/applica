@@ -9,7 +9,7 @@ async def get_master_cv(user_id: int, session: AsyncSession):
 
 
 async def get_master_cv_id_by_user_id(
-    user_id: str, session: AsyncSession
+    user_id: int, session: AsyncSession
 ) -> UUID | None:
     stmt = select(MasterCV.id).where(MasterCV.user_id == user_id)
     result = await session.execute(stmt)

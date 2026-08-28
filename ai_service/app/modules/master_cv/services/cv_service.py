@@ -5,6 +5,8 @@ from sqlalchemy import select
 from app.db.session import get_db
 import uuid
 
+from app.modules.master_cv.repository.master_cv_repo import get_master_cv_id_by_user_id
+from app.modules.master_cv.repository.cv_repository import get_all_cv_versions
 # model
 from app.modules.master_cv.models.master_cv import MasterCV, MasterCVVersion, CVStatus
 
@@ -112,3 +114,9 @@ async def process_cv_update(
 
     process_cv_task.delay(str(new_version_record.id), str(new_version_record.s3_key))
     return new_version_record.id
+
+async def get_all_cv(user_id: int, session: AsyncSession):
+    master_cv_id = await get_master_cv_id_by_user_id(user_id, session)
+    cvs = await get_all_cv_versions(master_cv_id, session)
+
+    return cvs

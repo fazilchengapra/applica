@@ -25,7 +25,7 @@ class NotificationDispatchView(APIView):
 
     def post(self, request):
         data = request.data
-
+        print(data)
         try:
             user = User.objects.get(id=data["user_id"])
         except User.DoesNotExist:
@@ -37,21 +37,21 @@ class NotificationDispatchView(APIView):
             )
 
         if data["event_type"] == "cv.processing":
-            push_cv_status(user_id=user.id, cv_id=data["cv_id"], status="processing")
+            push_cv_status(
+                user_id=user.id, cv_id=data["payload"]["cv_id"], status="processing"
+            )
 
         elif data["event_type"] in ("cv.completed", "cv.failed"):
             push_cv_status(
                 user_id=user.id,
-                cv_id=data["cv_id"],
-                status=data["status"].split(".")[-1],
+                cv_id=data["payload"]["cv_id"],
+                status=data["payload"]["status"].split(".")[-1],
             )
             create_and_push(
                 user=user,
-                type=data[
-                    "event_type"
-                ],  # SNS payload's "event_type" -> your "type" param
-                title=data["title"],
-                body=data["body"],
+                type=data["event_type"],
+                title=data["payload"]["title"],
+                body=data["payload"]["body"],
                 metadata=data.get("metadata", {}),
             )
         else:
