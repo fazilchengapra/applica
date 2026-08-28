@@ -9,6 +9,7 @@ from app.modules.master_cv.services.cv_service import (
     process_cv_upload,
     process_cv_update,
 )
+from app.modules.master_cv.services.master_cv_service import if_master_cv_exist
 from app.modules.master_cv.services.cv_stats_service import get_cv_stats
 from app.modules.master_cv.services.s3_service import delete_pdf_from_s3
 
@@ -22,9 +23,8 @@ from ...modules.master_cv.exceptions import (
     FileTooLargeError,
     S3ObjectNotFoundError,
     CVNotfoundError,
+    MultipleMasterCVError,
 )
-
-from pydantic import BaseModel
 
 router = APIRouter(prefix="/master-cv", tags=["master-cv"])
 
@@ -37,8 +37,8 @@ async def upload_master_cv(
     session: AsyncSession = Depends(get_db),
 ):
     content = await file.read()
-
     try:
+        await if_master_cv_exist(current_user_id, session)
         version_id = await process_cv_upload(
             file.filename,
             content,
@@ -46,7 +46,7 @@ async def upload_master_cv(
             session=session,
             target_role=target_role,
         )
-    except (InvalidPDFError, FileTooLargeError) as e:
+    except (InvalidPDFError, FileTooLargeError, MultipleMasterCVError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except S3UploadError as e:
         raise HTTPException(status_code=502, detail=str(e))

@@ -57,7 +57,9 @@ async def process_cv_upload(
     await session.refresh(version_record)
 
     print(f"cv  version id is: ${version_record.id} s3_key is {version_record.s3_key}")
-    process_cv_task.delay(str(version_record.id), str(version_record.s3_key), str(user_id))
+    process_cv_task.delay(
+        str(version_record.id), str(version_record.s3_key), str(user_id)
+    )
     return version_record.id
 
 
