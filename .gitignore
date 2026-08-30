@@ -110,3 +110,6 @@ override.tf.json
 # ==========================================
 *.swp
 *.swo
+
+node_modules
+package-lock.json

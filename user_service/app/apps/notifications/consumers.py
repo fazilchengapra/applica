@@ -14,7 +14,6 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
         await self.channel_layer.group_add(
             self.group_name,
-
             # channel_name is unique id for each tab
             self.channel_name,
         )
@@ -32,6 +31,6 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     # function for send notification -> call business logic using type name
     async def send_notification(self, event):
         await self.send_json(event["data"])
-
+        
     async def cv_status_update(self, event):
-            await self.send_json(event["data"])
+        await self.send_json({"event_type": event["event_type"], "data": event["data"]})
