@@ -1,0 +1,13 @@
+
+- name: notification-service
+  url: http://notification_service:8000
+  routes:
+    - name: notification-service-v1-protected
+      paths:
+        - /api/v1/notifications
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: internal-secret-auth
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
