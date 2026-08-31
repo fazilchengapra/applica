@@ -22,7 +22,7 @@ from app.apps.authentication.tasks import send_email_verification_task
 
 # notification
 from app.apps.notifications.services.welcome_notification import send_welcome as send_welcome_notification
-
+from app.apps.notifications.services import account_service
 
 def _generate_raw_token() -> str:
     return secrets.token_urlsafe(32)
@@ -67,5 +67,6 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
         expires_at=timezone.now() + timedelta(minutes=VERIFICATION_TOKEN_TTL_MINUTES),
     )
     send_welcome_notification(user=user)
-    send_email_verification_task.delay(user.id, raw_token)
+    # send_email_verification_task.delay(user.id, raw_token)
+    account_service.notify_account_verification(user.id, user.email, raw_token)
     return user
