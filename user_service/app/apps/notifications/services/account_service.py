@@ -8,7 +8,7 @@ from app.apps.notifications.publishers.sns_publisher import publish_to_sns
 
 from app.apps.notifications.constants.notification_type import NotificationType
 
-def notify_account_registered(
+def notify_account_verification(
     user_id: str,
     email: str,
     display_name: str,
@@ -29,4 +29,4 @@ def notify_account_verification(
     payload = AccountVerificationPayload(
         email=email, verification_link=verification_link
     )
-    return publish_to_sns(NotificationType.REGISTRATIONS, user_id, payload)
+    return publish_to_sns(NotificationType.ACCOUNT_VERIFICATION_REQ if not email_change else NotificationType.EMAIL_CHANGE_REQ, user_id, payload)

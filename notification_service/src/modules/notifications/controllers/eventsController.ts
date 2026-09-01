@@ -8,6 +8,7 @@ import {NotificationEventType} from '../../../constants/eventTypes'
 // templates
 import {createVerificationEmailPayload} from '../templates/verificationEmail'
 import {createRegistrationCompletedEmailPayload} from '../templates/registeredEmail'
+import {createChangeEmailPayload} from '../templates/changeEmail'
 
 const log = logger.child({ module: "notificationController" });
 
@@ -43,6 +44,15 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
           const payload = createRegistrationCompletedEmailPayload(data.email)
 
           await dispatchEmail(payload)
+          break
+        }
+
+        case NotificationEventType.EMAIL_CHANGE_REQUESTED:{
+          const data = event.payload
+          const payload = createChangeEmailPayload(data.email, data.verification_link)
+
+          await dispatchEmail(payload)
+          break
         }
 }
     return res.status(200).json({

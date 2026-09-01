@@ -3,6 +3,10 @@ from django.db import models
 
 class NotificationType(models.TextChoices):
     # Email
+    EMAIL_CHANGE_REQ = (
+        "account.email_change_requested",
+        "Email Change Request",
+    )
     EMAIL_CHANGED = (
         "account.email_changed",
         "Email Changed",
@@ -37,5 +41,8 @@ class NotificationType(models.TextChoices):
         "account.register",
         "Welcome",
     )
-    REGISTRATIONS = ("account.verification_requested", "Account Verification Request")
+    ACCOUNT_VERIFICATION_REQ = (
+        "account.verification_requested",
+        "Account Verification Request",
+    )
     REGISTERED = ("account.user_registered", "Account Registered Success")
