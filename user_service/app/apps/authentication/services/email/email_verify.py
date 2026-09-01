@@ -14,10 +14,10 @@ from app.apps.authentication.exceptions.email import (
 from app.apps.authentication.utils.token import hash_token
 
 # notification
-from app.apps.notifications.services.helper.email_notification_helper import email_verified_notification
+from app.apps.notifications.services.account_service import notify_account_registered
 
 
-def verify_email(*,raw_token: str) -> None:
+def verify_email(*, raw_token: str) -> None:
 
     token = (
         VerificationToken.objects.select_related("auth_method", "user")
@@ -53,4 +53,10 @@ def verify_email(*,raw_token: str) -> None:
         token.user.is_email_verified = True
         token.user.save(update_fields=["is_email_verified"])
 
-        email_verified_notification(user=token.user, email=token.user.email)
+        # TODO web-socket notification
+        notify_account_registered(
+            user_id=token.user.id,
+            email=token.user.email,
+            display_name="",
+            registration_method=token.auth_method.provider,
+        )

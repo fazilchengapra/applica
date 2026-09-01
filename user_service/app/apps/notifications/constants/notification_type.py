@@ -37,3 +37,5 @@ class NotificationType(models.TextChoices):
         "account.register",
         "Welcome",
     )
+    REGISTRATIONS = ("account.verification_requested", "Account Verification Request")
+    REGISTERED = ("account.user_registered", "Account Registered Success")

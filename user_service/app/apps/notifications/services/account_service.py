@@ -6,6 +6,8 @@ from app.apps.notifications.events.schemas import (
 )
 from app.apps.notifications.publishers.sns_publisher import publish_to_sns
 
+from app.apps.notifications.constants.notification_type import NotificationType
+
 def notify_account_registered(
     user_id: str,
     email: str,
@@ -17,7 +19,7 @@ def notify_account_registered(
         display_name=display_name,
         registration_method=registration_method,
     )
-    publish_to_sns("account.registered", user_id, payload)
+    publish_to_sns(NotificationType.REGISTERED, user_id, payload)
 
 
 def notify_account_verification(
@@ -27,4 +29,4 @@ def notify_account_verification(
     payload = AccountVerificationPayload(
         email=email, verification_link=verification_link
     )
-    return publish_to_sns("account.verification_requested", user_id, payload)
+    return publish_to_sns(NotificationType.REGISTRATIONS, user_id, payload)

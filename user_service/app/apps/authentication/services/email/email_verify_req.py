@@ -21,17 +21,22 @@ from app.apps.common.exceptions import UnexpectedError
 
 from ...tasks import send_email_verification_task
 
+# notification
+from app.apps.notifications.services.account_service import notify_account_verification
+
 
 def request_verification(user_mail) -> None:
     try:
         user = User.objects.get(email=user_mail, is_active=True)
     except User.DoesNotExist:
         raise UserNotFoundError("User not found")
-    
-    auth_method = AuthMethod.objects.filter(user=user.id, provider=AuthMethod.EMAIL).first()
+
+    auth_method = AuthMethod.objects.filter(
+        user=user.id, provider=AuthMethod.EMAIL
+    ).first()
 
     if not auth_method:
-        raise UnexpectedError('Unexpected error occurred')
+        raise UnexpectedError("Unexpected error occurred")
 
     if user.is_email_verified:
         raise EmailAlreadyVerifiedError("This email account is already verified.")
@@ -66,7 +71,7 @@ def request_verification(user_mail) -> None:
         )
 
         transaction.on_commit(
-            lambda: send_email_verification_task.delay(user.id, raw_token)
+            lambda: notify_account_verification(user.id, user.email, raw_token)
         )
 
     cache.set(cooldown_key, True, email.EMAIL_VERIFY_COOLDOWN_SECONDS)

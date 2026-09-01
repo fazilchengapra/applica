@@ -4,7 +4,10 @@ import { NotificationEvent } from "../schemas";
 import { dispatchEmail } from "../service";
 import { logger } from "../../../lib/logger";
 import {NotificationEventType} from '../../../constants/eventTypes'
+
+// templates
 import {createVerificationEmailPayload} from '../templates/verificationEmail'
+import {createRegistrationCompletedEmailPayload} from '../templates/registeredEmail'
 
 const log = logger.child({ module: "notificationController" });
 
@@ -28,11 +31,18 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
   try {
     switch (event.eventType) {
         case NotificationEventType.ACCOUNT_VERIFICATION_REQUESTED: {
-            const data = event.payload
-            const payload = createVerificationEmailPayload(data.email, data.verification_link)
+          const data = event.payload
+          const payload = createVerificationEmailPayload(data.email, data.verification_link)
 
-            await dispatchEmail(payload);
-            break;
+          await dispatchEmail(payload);
+          break;
+        }
+
+        case NotificationEventType.USER_REGISTERED:{
+          const data = event.payload
+          const payload = createRegistrationCompletedEmailPayload(data.email)
+
+          await dispatchEmail(payload)
         }
 }
     return res.status(200).json({

@@ -66,7 +66,6 @@ def register_user(*, first_name, last_name, email, phone_number, password, **kwa
         token_hash=_hash_token(raw_token),
         expires_at=timezone.now() + timedelta(minutes=VERIFICATION_TOKEN_TTL_MINUTES),
     )
-    send_welcome_notification(user=user)
-    # send_email_verification_task.delay(user.id, raw_token)
+    # send_welcome_notification(user=user) ## TODO
     account_service.notify_account_verification(user.id, user.email, raw_token)
     return user

@@ -1,17 +1,17 @@
 import { z } from "zod";
 import { BaseEventSchema } from "./envelope.schema";
+import {NotificationEventType} from '../../../constants/eventTypes'
 
 export const AccountRegistered = BaseEventSchema.extend({
-  eventType: z.literal("account.registered"),
+  eventType: z.literal(NotificationEventType.USER_REGISTERED),
   payload: z.object({
     email: z.string().email(),
-    displayName: z.string(),
-    registrationMethod: z.enum(["email", "google", "phone_otp"]),
+    registration_method: z.enum(["email", "google", "phone_otp"]),
   }),
 });
     
 export const AccountVerificationRequested = BaseEventSchema.extend({
-  eventType: z.literal("account.verification_requested"),
+  eventType: z.literal(NotificationEventType.ACCOUNT_VERIFICATION_REQUESTED),
   payload: z.object({
     email: z.string().email(),
     verification_link: z.string().url(),
