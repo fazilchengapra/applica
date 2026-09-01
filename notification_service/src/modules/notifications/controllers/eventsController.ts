@@ -3,6 +3,8 @@ import { z } from "zod";
 import { NotificationEvent } from "../schemas";
 import { dispatchEmail } from "../service";
 import { logger } from "../../../lib/logger";
+import {NotificationEventType} from '../../../constants/eventTypes'
+import {createVerificationEmailPayload} from '../templates/verificationEmail'
 
 const log = logger.child({ module: "notificationController" });
 
@@ -25,13 +27,9 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
 
   try {
     switch (event.eventType) {
-        case "account.verification_requested": {
-            const payload = {
-            to: event.payload.email,
-            subject: "Account Verification",
-            html: "",
-            text: `Your verification link is ${event.payload.verification_link}`,
-            };
+        case NotificationEventType.ACCOUNT_VERIFICATION_REQUESTED: {
+            const data = event.payload
+            const payload = createVerificationEmailPayload(data.email, data.verification_link)
 
             await dispatchEmail(payload);
             break;
