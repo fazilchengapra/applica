@@ -27,4 +27,4 @@ def notify_account_verification(
     payload = AccountVerificationPayload(
         email=email, verification_link=verification_link
     )
-    return publish_to_sns("account.verification", user_id, payload)
+    return publish_to_sns("account.verification_requested", user_id, payload)

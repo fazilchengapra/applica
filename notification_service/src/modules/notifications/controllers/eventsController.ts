@@ -7,7 +7,10 @@ import { logger } from "../../../lib/logger";
 const log = logger.child({ module: "notificationController" });
 
 export async function handleIncomingEvent(req: Request, res: Response): Promise<Response> {
+  console.log(req.body);
   const parsed = NotificationEvent.safeParse(req.body);
+
+  
 
   if (!parsed.success) {
     log.error({ errors: z.flattenError(parsed.error) }, "invalid notification event payload");
@@ -27,7 +30,7 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
             to: event.payload.email,
             subject: "Account Verification",
             html: "",
-            text: `Your verification link is ${event.payload.verificationLink}`,
+            text: `Your verification link is ${event.payload.verification_link}`,
             };
 
             await dispatchEmail(payload);

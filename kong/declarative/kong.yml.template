@@ -31,10 +31,4 @@ plugins:
       generator: uuid
       echo_downstream: true
 
-  - name: internal-secret-auth
-    config:
-      gateway_secret: "${LAMBDA_DISPATCH_SECRET}"
-      injected_header_value: notification-dispatcher
-      max_clock_skew_seconds: 300
-
 services:

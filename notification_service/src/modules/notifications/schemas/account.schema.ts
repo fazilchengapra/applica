@@ -14,7 +14,7 @@ export const AccountVerificationRequested = BaseEventSchema.extend({
   eventType: z.literal("account.verification_requested"),
   payload: z.object({
     email: z.string().email(),
-    verificationLink: z.string().url(),
+    verification_link: z.string().url(),
   }),
 });
 

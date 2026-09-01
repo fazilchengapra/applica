@@ -2,7 +2,7 @@
 - name: notification-service
   url: http://notification_service:8000
   routes:
-    - name: notification-service-v1-protected
+    - name: notification-dispatch-secure
       paths:
         - /api/v1/notifications
       strip_path: false
