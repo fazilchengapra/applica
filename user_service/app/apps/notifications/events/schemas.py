@@ -18,3 +18,8 @@ class AccountRegisteredPayload(BaseModel):
 class AccountVerificationPayload(BaseModel):
     email: EmailStr
     verification_link: str
+
+
+class EmailChangedPayload(BaseModel):
+    email: EmailStr
+    old_email: EmailStr

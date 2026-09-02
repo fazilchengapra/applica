@@ -34,7 +34,7 @@ def publish_notification_event(
                 "event_type": {"DataType": "String", "StringValue": event}
             },
         )
-        print("event succeed the response is 0", response)
+        print("event succeed the response is :", response)
         return response["MessageId"]
     except Exception:
         logger.exception("Failed to publish SNS notification: %s", event)

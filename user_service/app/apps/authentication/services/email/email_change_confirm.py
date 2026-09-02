@@ -13,10 +13,7 @@ from ...utils.cooldown import get_cool_down
 from app.apps.users.models import User
 
 # notification
-from app.apps.notifications.services.helper.email_notification_helper import (
-    email_change_notification_helper,
-)
-from app.apps.notifications.tasks import publish_notification_event_task
+from app.apps.notifications.services.account_service import notify_email_changed
 
 
 def confirm_email_change(user, raw_token: str) -> bool:
@@ -76,8 +73,5 @@ def confirm_email_change(user, raw_token: str) -> bool:
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_OLD, user.id))
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
 
-    data = email_change_notification_helper(
-        user=user, new_email=new_email, old_email=old_mail
-    )
-    transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
+    transaction.on_commit(lambda: notify_email_changed(new_email, old_mail, user.id))
     return True

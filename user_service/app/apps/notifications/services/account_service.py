@@ -3,12 +3,14 @@ from app.apps.notifications.events.schemas import (
     AccountRegisteredPayload,
     RegistrationMethod,
     AccountVerificationPayload,
+    EmailChangedPayload,
 )
 from app.apps.notifications.publishers.sns_publisher import publish_to_sns
 
 from app.apps.notifications.constants.notification_type import NotificationType
 
-def notify_account_verification(
+
+def notify_account_registered(
     user_id: str,
     email: str,
     display_name: str,
@@ -29,4 +31,17 @@ def notify_account_verification(
     payload = AccountVerificationPayload(
         email=email, verification_link=verification_link
     )
-    return publish_to_sns(NotificationType.ACCOUNT_VERIFICATION_REQ if not email_change else NotificationType.EMAIL_CHANGE_REQ, user_id, payload)
+    return publish_to_sns(
+        (
+            NotificationType.ACCOUNT_VERIFICATION_REQ
+            if not email_change
+            else NotificationType.EMAIL_CHANGE_REQ
+        ),
+        user_id,
+        payload,
+    )
+
+
+def notify_email_changed(email: str, old_email: str, user_id: str) -> bool:
+    payload = EmailChangedPayload(email=email, old_email=old_email)
+    return publish_to_sns(NotificationType.EMAIL_CHANGED, user_id, payload)

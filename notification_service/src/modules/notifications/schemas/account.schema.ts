@@ -18,4 +18,12 @@ export const AccountVerificationRequested = BaseEventSchema.extend({
   }),
 });
 
-export const AccountEvents = [AccountRegistered, AccountVerificationRequested] as const;
+export const EmailChanged = BaseEventSchema.extend({
+  eventType: z.literal(NotificationEventType.EMAIL_CHANGED),
+  payload: z.object({
+    email: z.string().email(),
+    old_email: z.string().email()
+  }),
+});
+
+export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged] as const;
