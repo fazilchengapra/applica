@@ -15,6 +15,9 @@ from app.apps.users.models import User
 # notification
 from app.apps.notifications.services.account_service import notify_email_changed
 
+# utils
+from app.apps.common.utils.mask import mask_email
+
 
 def confirm_email_change(user, raw_token: str) -> bool:
     """Returns True once both old and new email have confirmed and the swap is complete."""
@@ -73,5 +76,5 @@ def confirm_email_change(user, raw_token: str) -> bool:
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_OLD, user.id))
     cache.delete(get_cool_down(cooldown.EMAIL_CHANGE_NEW, user.id))
 
-    transaction.on_commit(lambda: notify_email_changed(new_email, old_mail, user.id))
+    transaction.on_commit(lambda: notify_email_changed(new_email, mask_email(old_mail), user.id))
     return True

@@ -14,8 +14,6 @@ User = get_user_model()
 
 logger = get_task_logger(__name__)
 
-from app.apps.notifications.services.sns_publisher import publish_notification_event
-
 OTP_TTL_MINUTES = 5
 
 
