@@ -11,3 +11,17 @@
         - name: internal-secret-auth
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+    
+    - name : websocket-connection
+      paths:
+        - /ws/notifications/
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
