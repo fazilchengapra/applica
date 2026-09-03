@@ -11,12 +11,13 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "start:worker:email":"ts-node-dev --respawn src/workers/emailWorker.ts",
+    "start:worker:email": "ts-node-dev --respawn src/workers/emailWorker.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
     "@prisma/client": "^7.10.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "abbrev": "^3.0.1",
     "accepts": "^2.0.0",
     "acorn": "^8.18.0",
