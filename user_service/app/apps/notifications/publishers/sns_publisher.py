@@ -26,6 +26,7 @@ def publish_to_sns(event_type: str, user_id: str, payload: BaseModel) -> None:
             Message=json.dumps(message),
             MessageAttributes={
                 "eventType": {"DataType": "String", "StringValue": event_type},
+                "channel": {"DataType": "String", "StringValue": "EMAIL"},
             },
         )
     except Exception:
