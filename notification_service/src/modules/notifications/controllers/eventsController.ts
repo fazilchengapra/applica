@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { z } from "zod";
+import { date, z } from "zod";
 import { NotificationEvent } from "../schemas";
 import { dispatchEmail } from "../service";
 import { logger } from "../../../lib/logger";
@@ -10,6 +10,7 @@ import {createVerificationEmailPayload} from '../templates/verificationEmail'
 import {createRegistrationCompletedEmailPayload} from '../templates/registeredEmail'
 import {createChangeEmailPayload} from '../templates/changeEmail'
 import {createEmailChangedConfirmedPayload} from '../templates/emailChangedConfirm'
+import {createPasswordChangedEmailPayload} from '../templates/passwordChangedEamil'
 
 const log = logger.child({ module: "notificationController" });
 
@@ -59,6 +60,14 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
         case NotificationEventType.EMAIL_CHANGED:{
           const data = event.payload
           const payload = createEmailChangedConfirmedPayload(data.email, data.old_email)
+
+          await dispatchEmail(payload)
+          break
+        }
+
+        case NotificationEventType.PASSWORD_CHANGED:{
+          const data = event.payload
+          const payload = createPasswordChangedEmailPayload(data.email)
 
           await dispatchEmail(payload)
           break

@@ -23,3 +23,6 @@ class AccountVerificationPayload(BaseModel):
 class EmailChangedPayload(BaseModel):
     email: EmailStr
     old_email: str # it's masked email
+
+class PasswordChangedPayload(BaseModel):
+    email: EmailStr

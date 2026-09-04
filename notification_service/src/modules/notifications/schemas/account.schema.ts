@@ -10,7 +10,7 @@ export const AccountRegistered = BaseEventSchema.extend({
   }),
 });
     
-export const AccountVerificationRequested = BaseEventSchema.extend({
+export const AccountVerificationRequested = BaseEventSchema.  extend({
   eventType: z.enum([NotificationEventType.ACCOUNT_VERIFICATION_REQUESTED, NotificationEventType.EMAIL_CHANGE_REQUESTED]),
   payload: z.object({
     email: z.string().email(),
@@ -26,4 +26,11 @@ export const EmailChanged = BaseEventSchema.extend({
   }),
 });
 
-export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged] as const;
+export const PasswordChanged = BaseEventSchema.extend({
+    eventType: z.literal(NotificationEventType.PASSWORD_CHANGED),
+    payload: z.object({
+      email: z.string().email(),
+  }),
+})
+
+export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged, PasswordChanged] as const;

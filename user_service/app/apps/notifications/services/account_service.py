@@ -8,6 +8,7 @@ from app.apps.notifications.events.schemas import (
 from app.apps.notifications.publishers.sns_publisher import publish_to_sns
 
 from app.apps.notifications.constants.notification_type import NotificationType
+from app.apps.notifications.constants.channel_type import ChannelChoice
 
 
 def notify_account_registered(
@@ -21,7 +22,7 @@ def notify_account_registered(
         display_name=display_name,
         registration_method=registration_method,
     )
-    publish_to_sns(NotificationType.REGISTERED, user_id, payload)
+    publish_to_sns(NotificationType.REGISTERED, user_id, payload, ChannelChoice.EMAIL)
 
 
 def notify_account_verification(
@@ -39,9 +40,10 @@ def notify_account_verification(
         ),
         user_id,
         payload,
+        ChannelChoice.EMAIL,
     )
 
 
 def notify_email_changed(email: str, old_email: str, user_id: str) -> bool:
     payload = EmailChangedPayload(email=email, old_email=old_email)
-    return publish_to_sns(NotificationType.EMAIL_CHANGED, user_id, payload)
+    return publish_to_sns(NotificationType.EMAIL_CHANGED, user_id, ChannelChoice.EMAIL)
