@@ -32,3 +32,6 @@ class PasswordChangedPayload(BaseModel):
 class ForgotPasswordPayload(BaseModel):
     raw_token: str
     email: EmailStr
+
+class ResetPasswordPayload(BaseModel):
+    email: EmailStr
