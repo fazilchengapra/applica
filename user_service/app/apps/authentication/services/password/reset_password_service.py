@@ -7,6 +7,7 @@ from django.db import transaction
 from app.apps.users.models import User
 from app.apps.authentication.models.verification_token import VerificationToken
 from app.apps.authentication.constants import verification_type
+from app.apps.notifications.services.password_service import notify_password_rest
 
 from ...constants import token, cooldown
 from ...utils.cooldown import get_cool_down
@@ -46,7 +47,6 @@ def reset_password(raw_token: str, new_password: str) -> None:
         record.used_at = timezone.now()
         record.save(update_fields=["used_at"])
 
-        data = password_reset_notification_helper(user=user)
-        transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
+        transaction.on_commit(lambda: notify_password_rest(user.id, user.email))
 
     cache.delete(get_cool_down(cooldown.PASSWORD_RESET_COOLDOWN, user.id))

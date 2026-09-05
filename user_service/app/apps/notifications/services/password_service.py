@@ -3,7 +3,7 @@ from app.apps.notifications.constants.notification_type import NotificationType
 from app.apps.notifications.constants.channel_type import ChannelChoice
 from app.apps.notifications.events.schemas import PasswordChangedPayload
 from app.apps.notifications.events.schemas import ForgotPasswordPayload
-from app.apps.notifications.events.schemas import ResetPasswordPayload
+from app.apps.notifications.events.schemas import CommonPayload
 
 
 def notify_password_changed(user_id: str, email: str):
@@ -24,7 +24,7 @@ def notify_forgot_password(user_id: str, email: str, raw_token: str):
 
 
 def notify_password_rest(user_id: str, email: str):
-    payload = ResetPasswordPayload(email=email)
+    payload = CommonPayload(email=email)
 
     publish_to_sns(
         NotificationType.PASSWORD_RESET_COMPLETED,

@@ -12,6 +12,7 @@ import {createChangeEmailPayload} from '../templates/changeEmail'
 import {createEmailChangedConfirmedPayload} from '../templates/emailChangedConfirm'
 import {createPasswordChangedEmailPayload} from '../templates/passwordChangedEamil'
 import {createForgotPasswordEmailPayload} from '../templates/forgotPassword'
+import {createPasswordResetCompletedEmailPayload} from '../templates/passwordResetCompeted'
 
 // helper
 import {get_forgot_pass_url} from '../helpers/make_urls'
@@ -81,6 +82,14 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
           const data = event.payload
           const url = get_forgot_pass_url(data.raw_token)
           const payload = createForgotPasswordEmailPayload(data.email, url)
+
+          await dispatchEmail(payload)
+          break
+        }
+
+        case NotificationEventType.PASSWORD_RESET_COMPETED:{
+          const data = event.payload
+          const payload = createPasswordResetCompletedEmailPayload(data.email)
 
           await dispatchEmail(payload)
           break

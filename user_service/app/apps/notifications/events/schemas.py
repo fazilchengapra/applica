@@ -33,5 +33,5 @@ class ForgotPasswordPayload(BaseModel):
     raw_token: str
     email: EmailStr
 
-class ResetPasswordPayload(BaseModel):
+class CommonPayload(BaseModel):
     email: EmailStr

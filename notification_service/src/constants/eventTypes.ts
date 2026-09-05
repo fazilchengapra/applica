@@ -12,5 +12,6 @@ export const NotificationEventType = {
   EMAIL_CHANGED: "account.email_changed",
 
   PASSWORD_CHANGED: 'account.password_changed',
-  FORGOT_PASSWORD_REQ: 'account.forgot_password_req'
+  FORGOT_PASSWORD_REQ: 'account.forgot_password_req',
+  PASSWORD_RESET_COMPETED: 'account.password_reset_completed'
 } as const;

@@ -41,4 +41,11 @@ export const ForgotPasswordRequested = BaseEventSchema.extend({
   }),
 })
 
-export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged, PasswordChanged, ForgotPasswordRequested] as const;
+export const PASSWORD_REST_COMPETED = BaseEventSchema.extend({
+    eventType: z.literal(NotificationEventType.PASSWORD_RESET_COMPETED),
+    payload: z.object({
+      email: z.string().email(),
+  }),
+})
+
+export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged, PasswordChanged, ForgotPasswordRequested, PASSWORD_REST_COMPETED] as const;
