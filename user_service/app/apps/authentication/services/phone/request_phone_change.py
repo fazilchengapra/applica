@@ -20,6 +20,8 @@ from app.apps.authentication.utils import otp, token
 from app.apps.authentication.utils.cooldown import get_cool_down
 from app.apps.authentication.constants import cooldown
 
+from app.apps.notifications.services.sms_service import change_phone_otp_sms
+
 User = get_user_model()
 
 PHONE_CHANGE_TTL_MINUTES = phone.OTP_TTL_MINUTES
@@ -87,5 +89,5 @@ def request_phone_change(user, new_phone_number: str) -> None:
     cache.set(cooldown_key, True, timeout=phone.OTP_RESEND_COOLDOWN_SECONDS)
     cache.delete(get_cool_down(cooldown.PHONE_CHANGE_ATTEMPTS, user.id))
 
-    send_otp_sms_task.delay(user.id, old_otp)  # defaults to user.phone_number
-    send_otp_sms_task.delay(user.id, new_otp, override_phone_number=new_phone_number)
+    change_phone_otp_sms(user.id, user.phone_number, old_otp)
+    change_phone_otp_sms(user.id, new_phone_number, new_otp)

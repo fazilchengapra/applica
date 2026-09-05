@@ -40,6 +40,16 @@ class NotificationType(models.TextChoices):
         "Password Rest Success",
     )
 
+    SMS_LOGIN_OTP = (
+        "account.sms_login_otp",
+        "SMS Login OTP",
+    )
+
+    CHANGE_PHONE_NUMBER_REQUEST = (
+        "account.changed_phone_number_req",
+        "Phone number change request",
+    )
+
     # account
     WELCOME = (
         "account.register",

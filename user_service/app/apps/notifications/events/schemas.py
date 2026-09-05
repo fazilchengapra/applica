@@ -33,5 +33,11 @@ class ForgotPasswordPayload(BaseModel):
     raw_token: str
     email: EmailStr
 
+
 class CommonPayload(BaseModel):
     email: EmailStr
+
+
+class SMSCommon(BaseModel):
+    phone_number: str
+    raw_otp: str

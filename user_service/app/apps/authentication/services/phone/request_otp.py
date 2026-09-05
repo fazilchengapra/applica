@@ -11,7 +11,6 @@ from app.apps.authentication.exceptions.phone import (
 from app.apps.authentication.exceptions.otp import OTPCooldownError
 
 from app.apps.authentication.models import AuthMethod, VerificationToken
-from app.apps.authentication.tasks import send_otp_sms_task
 from app.apps.authentication.utils import token, otp
 from app.apps.authentication.constants import verification_type
 
@@ -19,6 +18,8 @@ from app.apps.authentication.constants import phone
 
 from app.apps.authentication.utils.cooldown import get_cool_down
 from app.apps.authentication.constants import cooldown
+
+from app.apps.notifications.services.sms_service import request_login_otp_sms
 
 
 def request_phone_otp(user, login=False) -> None:
@@ -61,4 +62,7 @@ def request_phone_otp(user, login=False) -> None:
 
     cache.set(cooldown_key, True, timeout=phone.OTP_RESEND_COOLDOWN_SECONDS)
     cache.delete(get_cool_down(cooldown.OTP_ATTEMPTS, user.id))
-    transaction.on_commit(lambda: send_otp_sms_task.delay(user.id, raw_otp))
+    print("user_id : ", user.id, "user phone number: ", user.phone_number)
+    transaction.on_commit(
+        lambda: request_login_otp_sms(str(user.id), str(user.phone_number), raw_otp)
+    )
