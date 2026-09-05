@@ -21,6 +21,10 @@ class NotificationType(models.TextChoices):
         "account.password_changed",
         "Password Changed",
     )
+    FORGOT_PASSWORD_REQ = (
+        "account.forgot_password_req",
+        "Request for Forgot Password",
+    )
     PASSWORD_RESET_COMPLETED = (
         "account.password_reset_completed",
         "Password Rest Success",

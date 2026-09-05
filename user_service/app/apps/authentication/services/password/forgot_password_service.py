@@ -10,7 +10,7 @@ from django.utils import timezone
 from app.apps.users.models import User
 from app.apps.authentication.models import VerificationToken
 from app.apps.authentication.constants import verification_type
-from app.apps.authentication.tasks import send_password_reset_email_task
+from app.apps.notifications.services.password_service import notify_forgot_password
 from ...exceptions.account import UserNotFoundError
 from ...exceptions.email import EmailNotVerifiedError
 
@@ -59,7 +59,7 @@ def request_reset(email: str) -> None:
             auth_method=auth_method,
         )
         transaction.on_commit(
-            lambda: send_password_reset_email_task.delay(user.id, raw_token)
+            lambda: notify_forgot_password(user.id, user.email, raw_token)
         )
 
     cache.set(cooldown_key, True, token_const.RESET_COOLDOWN_SECONDS)
