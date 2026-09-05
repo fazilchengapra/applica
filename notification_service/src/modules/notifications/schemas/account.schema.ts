@@ -36,8 +36,8 @@ export const PasswordChanged = BaseEventSchema.extend({
 export const ForgotPasswordRequested = BaseEventSchema.extend({
     eventType: z.literal(NotificationEventType.FORGOT_PASSWORD_REQ),
     payload: z.object({
+      raw_token: z.string(),
       email: z.string().email(),
-      raw_token: z.string().url(),
   }),
 })
 

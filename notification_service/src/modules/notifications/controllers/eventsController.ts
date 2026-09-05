@@ -13,6 +13,9 @@ import {createEmailChangedConfirmedPayload} from '../templates/emailChangedConfi
 import {createPasswordChangedEmailPayload} from '../templates/passwordChangedEamil'
 import {createForgotPasswordEmailPayload} from '../templates/forgotPassword'
 
+// helper
+import {get_forgot_pass_url} from '../helpers/make_urls'
+
 const log = logger.child({ module: "notificationController" });
 
 export async function handleIncomingEvent(req: Request, res: Response): Promise<Response> {
@@ -76,7 +79,8 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
 
         case NotificationEventType.FORGOT_PASSWORD_REQ:{
           const data = event.payload
-          const payload = createForgotPasswordEmailPayload(data.email, data.raw_token)
+          const url = get_forgot_pass_url(data.raw_token)
+          const payload = createForgotPasswordEmailPayload(data.email, url)
 
           await dispatchEmail(payload)
           break

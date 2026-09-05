@@ -11,7 +11,9 @@ const envSchema = z.object({
   GMAIL_APP_PASSWORD: z.string().min(1),
 
   REDIS_HOST: z.string(),
-  REDIS_PORT: z.string()
+  REDIS_PORT: z.string(),
+
+  FRONTEND_URL: z.string()
 });
 
 export const env = envSchema.parse(process.env);
