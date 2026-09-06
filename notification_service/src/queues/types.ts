@@ -4,3 +4,8 @@ export interface EmailJobPayload {
   html: string;
   text?: string;
 }
+
+export interface SMSPayload{
+  to: string;
+  body: string
+}

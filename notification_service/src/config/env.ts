@@ -13,7 +13,11 @@ const envSchema = z.object({
   REDIS_HOST: z.string(),
   REDIS_PORT: z.string(),
 
-  FRONTEND_URL: z.string()
+  FRONTEND_URL: z.string(),
+
+  TWILIO_FROM_NUMBER: z.string(),
+  TWILIO_ACCOUNT_SID: z.string(),
+  TWILIO_AUTH_TOKEN:  z.string()
 });
 
 export const env = envSchema.parse(process.env);

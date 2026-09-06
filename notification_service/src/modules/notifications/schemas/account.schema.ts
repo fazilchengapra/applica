@@ -48,4 +48,28 @@ export const PASSWORD_REST_COMPETED = BaseEventSchema.extend({
   }),
 })
 
-export const AccountEvents = [AccountRegistered, AccountVerificationRequested, EmailChanged, PasswordChanged, ForgotPasswordRequested, PASSWORD_REST_COMPETED] as const;
+export const LOGIN_OTP_REQUESTED = BaseEventSchema.extend({
+    eventType: z.literal(NotificationEventType.LOGIN_OTP_REQUESTED),
+    payload: z.object({
+      phone_number: z.string().min(10).max(20),
+      raw_otp: z.string().min(6).max(6),
+  }),
+})
+
+export const PHONE_VERIFICATION_OTP_REQUESTED = BaseEventSchema.extend({
+    eventType: z.literal(NotificationEventType.PHONE_VERIFICATION_OTP_REQUESTED),
+    payload: z.object({
+      phone_number: z.string().min(10).max(20),
+      raw_otp: z.string().min(6).max(6),
+  }),
+})
+
+export const AccountEvents = [
+  AccountRegistered,
+  AccountVerificationRequested, 
+  EmailChanged, PasswordChanged, 
+  ForgotPasswordRequested, 
+  PASSWORD_REST_COMPETED, 
+  LOGIN_OTP_REQUESTED,
+  PHONE_VERIFICATION_OTP_REQUESTED
+] as const;

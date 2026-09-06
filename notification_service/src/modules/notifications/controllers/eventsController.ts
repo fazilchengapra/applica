@@ -1,21 +1,25 @@
 import { Request, Response } from "express";
 import { date, z } from "zod";
 import { NotificationEvent } from "../schemas";
-import { dispatchEmail } from "../service";
+import { dispatchEmail, dispatchOtpSms } from "../service";
 import { logger } from "../../../lib/logger";
 import {NotificationEventType} from '../../../constants/eventTypes'
 
-// templates
-import {createVerificationEmailPayload} from '../templates/verificationEmail'
-import {createRegistrationCompletedEmailPayload} from '../templates/registeredEmail'
-import {createChangeEmailPayload} from '../templates/changeEmail'
-import {createEmailChangedConfirmedPayload} from '../templates/emailChangedConfirm'
-import {createPasswordChangedEmailPayload} from '../templates/passwordChangedEamil'
-import {createForgotPasswordEmailPayload} from '../templates/forgotPassword'
-import {createPasswordResetCompletedEmailPayload} from '../templates/passwordResetCompeted'
+// templates (email)
+import {createVerificationEmailPayload} from '../templates/email/verificationEmail'
+import {createRegistrationCompletedEmailPayload} from '../templates/email/registeredEmail'
+import {createChangeEmailPayload} from '../templates/email/changeEmail'
+import {createEmailChangedConfirmedPayload} from '../templates/email/emailChangedConfirm'
+import {createPasswordChangedEmailPayload} from '../templates/email/passwordChangedEamil'
+import {createForgotPasswordEmailPayload} from '../templates/email/forgotPassword'
+import {createPasswordResetCompletedEmailPayload} from '../templates/email/passwordResetCompeted'
+
+// templates (phone)
+import {createLoginOtpSms, createPhoneVerificationOtpSms} from '../templates/phone/phoneTemplates'
 
 // helper
 import {get_forgot_pass_url} from '../helpers/make_urls'
+import { da } from "zod/v4/locales";
 
 const log = logger.child({ module: "notificationController" });
 
@@ -92,6 +96,22 @@ export async function handleIncomingEvent(req: Request, res: Response): Promise<
           const payload = createPasswordResetCompletedEmailPayload(data.email)
 
           await dispatchEmail(payload)
+          break
+        }
+
+        case NotificationEventType.PHONE_VERIFICATION_OTP_REQUESTED:{
+          const data = event.payload
+          const payload = createPhoneVerificationOtpSms(data.raw_otp, data.phone_number)
+
+          await dispatchOtpSms(payload)
+          break
+        }
+
+        case NotificationEventType.LOGIN_OTP_REQUESTED:{
+          const data = event.payload
+          const payload = createLoginOtpSms(data.raw_otp, data.phone_number)
+
+          await dispatchOtpSms(payload)
           break
         }
 }
