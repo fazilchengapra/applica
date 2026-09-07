@@ -45,6 +45,11 @@ class NotificationType(models.TextChoices):
         "SMS Login OTP",
     )
 
+    PHONE_VERIFICATION_OTP_REQUEST = (
+        "account.sms_verification_otp",
+        "SMS Verification OTP",
+    )
+
     CHANGE_PHONE_NUMBER_REQUEST = (
         "account.changed_phone_number_req",
         "Phone number change request",

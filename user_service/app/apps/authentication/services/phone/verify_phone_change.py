@@ -16,7 +16,7 @@ from ...exceptions.otp import OTPLockedError
 from app.apps.notifications.services.helper.phone_notification_helper import (
     phone_number_change_notification_helper,
 )
-from app.apps.notifications.tasks import publish_notification_event_task
+from app.apps.notifications.services.create_and_push_notification import create_and_push
 
 
 def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
@@ -64,7 +64,15 @@ def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
         data = phone_number_change_notification_helper(
             user=user, new_phone=new_phone_number, old_phone=old_number
         )
-        transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
+        transaction.on_commit(
+            lambda: create_and_push(
+                user=data["user"],
+                type=data["event"],
+                title=data["title"],
+                body=data["body"],
+                metadata=data["metadata"],
+            )
+        )
 
     cache.delete(attempts_key)
     cache.delete(pending_key)

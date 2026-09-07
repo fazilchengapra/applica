@@ -11,6 +11,16 @@ def request_login_otp_sms(user_id: str, phone_number: int, raw_otp: str):
     )
 
 
+def request_verify_otp_sms(user_id: str, phone_number: int, raw_otp: str):
+    payload = SMSCommon(phone_number=phone_number, raw_otp=raw_otp)
+    publish_to_sns(
+        NotificationType.PHONE_VERIFICATION_OTP_REQUEST,
+        user_id,
+        payload,
+        channel=ChannelChoice.SMS,
+    )
+
+
 def change_phone_otp_sms(user_id: str, phone_number: int, raw_otp: str):
     payload = SMSCommon(phone_number=phone_number, raw_otp=raw_otp)
     publish_to_sns(

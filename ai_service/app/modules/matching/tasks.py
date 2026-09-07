@@ -1,8 +1,11 @@
 import asyncio
 import logging
 
+from sqlalchemy import select
+
 from app.core.celery_app import celery_app
 from app.db.celery_db import get_celery_db_session
+from app.modules.master_cv.models.master_cv import CVStatus, MasterCV, MasterCVVersion
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,43 @@ from app.modules.matching.services.save_matches_service import save_matches
 @celery_app.task()
 def match_user_task(user_id: int):
     asyncio.run(_match_user(user_id))
+
+
+@celery_app.task()
+def daily_job_matching_task(batch_size: int = 50):
+    asyncio.run(_dispatch_daily_job_matching(batch_size))
+
+
+async def _dispatch_daily_job_matching(batch_size: int):
+    offset = 0
+    dispatched = 0
+
+    async with get_celery_db_session() as db:
+        while True:
+            result = await db.execute(
+                select(MasterCV.user_id)
+                .join(MasterCVVersion, MasterCVVersion.master_cv_id == MasterCV.id)
+                .where(
+                    MasterCV.deleted_at.is_(None),
+                    MasterCVVersion.is_current.is_(True),
+                    MasterCVVersion.status == CVStatus.COMPLETED.value,
+                )
+                .distinct()
+                .order_by(MasterCV.user_id)
+                .limit(batch_size)
+                .offset(offset)
+            )
+            user_ids = [row[0] for row in result.all()]
+            if not user_ids:
+                break
+
+            for user_id in user_ids:
+                match_user_task.delay(user_id)
+
+            dispatched += len(user_ids)
+            offset += len(user_ids)
+
+    logger.info("Dispatched daily job matching for %s users", dispatched)
 
 
 async def _match_user(user_id: int):

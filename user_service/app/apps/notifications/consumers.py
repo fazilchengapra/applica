@@ -31,6 +31,3 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     # function for send notification -> call business logic using type name
     async def send_notification(self, event):
         await self.send_json(event["data"])
-        
-    async def cv_status_update(self, event):
-        await self.send_json({"event_type": event["event_type"], "data": event["data"]})

@@ -7,6 +7,7 @@ import uuid
 
 from app.modules.master_cv.repository.master_cv_repo import get_master_cv_id_by_user_id
 from app.modules.master_cv.repository.cv_repository import get_all_cv_versions
+
 # model
 from app.modules.master_cv.models.master_cv import MasterCV, MasterCVVersion, CVStatus
 
@@ -17,6 +18,7 @@ from .helpers.validator import validate_file_size, validate_pdf
 
 # tasks
 from ..tasks import process_cv_task
+from app.modules.notifications.publisher import publish_event
 
 # exceptions
 from ..exceptions import CVNotfoundError
@@ -59,6 +61,11 @@ async def process_cv_upload(
     await session.refresh(version_record)
 
     print(f"cv  version id is: ${version_record.id} s3_key is {version_record.s3_key}")
+    await publish_event(
+        event_type="cv.pending",
+        user_id=str(user_id),
+        payload={"cv_id": str(version_record.id), "status": "pending"},
+    )
     process_cv_task.delay(
         str(version_record.id), str(version_record.s3_key), str(user_id)
     )
@@ -112,8 +119,16 @@ async def process_cv_update(
     await session.refresh(cv_version_record)
     await session.refresh(new_version_record)
 
-    process_cv_task.delay(str(new_version_record.id), str(new_version_record.s3_key))
+    await publish_event(
+        event_type="cv.pending",
+        user_id=str(user_id),
+        payload={"cv_id": str(new_version_record.id), "status": "pending"},
+    )
+    process_cv_task.delay(
+        str(new_version_record.id), str(new_version_record.s3_key), str(user_id)
+    )
     return new_version_record.id
+
 
 async def get_all_cv(user_id: int, session: AsyncSession):
     master_cv_id = await get_master_cv_id_by_user_id(user_id, session)

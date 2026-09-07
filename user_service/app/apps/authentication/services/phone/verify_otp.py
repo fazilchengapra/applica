@@ -21,7 +21,8 @@ from app.apps.authentication.constants import cooldown
 from app.apps.notifications.services.helper.phone_notification_helper import (
     phone_verified_notification_helper,
 )
-from app.apps.notifications.tasks import publish_notification_event_task
+from app.apps.notifications.services.create_and_push_notification import create_and_push
+
 
 def verify_phone_otp(user, code: str) -> None:
     attempts_key = get_cool_down(cooldown.OTP_ATTEMPTS, user.id)
@@ -61,7 +62,15 @@ def verify_phone_otp(user, code: str) -> None:
         user.save(update_fields=["is_phone_verified"])
 
         data = phone_verified_notification_helper(user=user, phone=user.phone_number)
-        transaction.on_commit(lambda: publish_notification_event_task.delay(**data))
+        transaction.on_commit(
+            lambda: create_and_push(
+                user=data["user"],
+                type=data["event"],
+                title=data["title"],
+                body=data["body"],
+                metadata=data["metadata"],
+            )
+        )
 
     cache.delete(attempts_key)
     cache.delete(get_cool_down(cooldown.OTP_COOLDOWN, user.id))

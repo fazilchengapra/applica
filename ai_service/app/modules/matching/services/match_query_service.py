@@ -1,8 +1,10 @@
 from uuid import UUID
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.modules.jobs.models.jobs import Job
 from app.modules.matching.models.job_match import JobMatch, MatchStatus
 
 
@@ -14,7 +16,11 @@ async def get_matches_for_user(
     limit: int = 20,
     offset: int = 0,
 ) -> list[JobMatch]:
-    query = select(JobMatch).where(JobMatch.user_id == user_id)
+    query = (
+        select(JobMatch)
+        .options(selectinload(JobMatch.job).selectinload(Job.company))
+        .where(JobMatch.user_id == user_id)
+    )
 
     if status_filter is not None:
         query = query.where(JobMatch.status == status_filter)
@@ -27,10 +33,16 @@ async def get_matches_for_user(
     return list(result.scalars().all())
 
 
-async def get_match_by_id(db: AsyncSession, match_id: UUID, user_id: int) -> JobMatch | None:
-    query = select(JobMatch).where(
-        JobMatch.id == match_id,
-        JobMatch.user_id == user_id,  # ownership check — never trust match_id alone
+async def get_match_by_id(
+    db: AsyncSession, match_id: UUID, user_id: int
+) -> JobMatch | None:
+    query = (
+        select(JobMatch)
+        .options(selectinload(JobMatch.job).selectinload(Job.company))
+        .where(
+            JobMatch.id == match_id,
+            JobMatch.user_id == user_id,  # ownership check — never trust match_id alone
+        )
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()

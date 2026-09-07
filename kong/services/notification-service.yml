@@ -2,6 +2,12 @@
 - name: notification-service
   url: http://notification_service:8000
   routes:
+    - name: realtime-cv-status
+      paths:
+        - /api/v1/notifications/realtime/cv-status
+      strip_path: false
+      preserve_host: true
+
     - name: notification-dispatch-secure
       paths:
         - /api/v1/notifications
@@ -25,3 +31,6 @@
             key_claim_name: iss
             cookie_names:
               - access_token
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"

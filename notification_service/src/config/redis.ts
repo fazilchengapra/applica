@@ -21,3 +21,12 @@ export function createRealtimeAdapterClients() {
 
   return { pubClient, subClient };
 }
+
+export const REALTIME_CV_STATUS_CHANNEL = 'notification:cv-status';
+
+export function createRealtimeEventClients() {
+  const publisher = new Redis({ ...baseConfig, db: 4 });
+  const subscriber = publisher.duplicate();
+
+  return { publisher, subscriber };
+}

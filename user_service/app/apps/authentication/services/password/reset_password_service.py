@@ -18,7 +18,6 @@ from ...exceptions.token import TokenInvalidError, TokenExpiredError
 from app.apps.notifications.services.helper.password_notification_helper import (
     password_reset_notification_helper,
 )
-from app.apps.notifications.tasks import publish_notification_event_task
 
 
 def reset_password(raw_token: str, new_password: str) -> None:

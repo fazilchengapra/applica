@@ -20,7 +20,7 @@ def process_cv_task(self, cv_id: str, s3_key: str, user_id: str):
 async def _process_cv_async(cv_id: str, s3_key: str, user_id: str):
     async with CelerySessionLocal() as session:
         try:
-            publish_event(
+            await publish_event(
                 event_type="cv.processing",
                 user_id=user_id,
                 payload={"cv_id": str(cv_id), "status": "processing"},
@@ -37,7 +37,7 @@ async def _process_cv_async(cv_id: str, s3_key: str, user_id: str):
             version_record.status = CVStatus.COMPLETED
             version_record.embedding = embed
             await session.commit()
-            publish_event(
+            await publish_event(
                 event_type="cv.completed",
                 user_id=user_id,
                 payload={
@@ -52,7 +52,7 @@ async def _process_cv_async(cv_id: str, s3_key: str, user_id: str):
             version_record = await session.get(MasterCVVersion, cv_id)
             version_record.status = CVStatus.FAILED
             await session.commit()
-            publish_event(
+            await publish_event(
                 event_type="cv.failed",
                 user_id=user_id,
                 payload={

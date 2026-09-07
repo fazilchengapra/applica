@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     VERIFICATION_APPROVE_THRESHOLD: str
 
     SNS_NOTIFICATIONS_TOPIC_ARN: str
+    NOTIFICATION_SERVICE_URL: str = "http://kong:8000"
 
     class Config:
         env_file = ".env"

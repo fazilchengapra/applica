@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from app.apps.notifications.services import create_and_push, push_cv_status
+from app.apps.notifications.services import create_and_push
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -36,33 +36,12 @@ class NotificationDispatchView(APIView):
                 {"detail": "user not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if data["event_type"] == "cv.processing":
-            push_cv_status(
-                user_id=user.id, cv_id=data["payload"]["cv_id"], status="processing"
-            )
-
-        elif data["event_type"] in ("cv.completed", "cv.failed"):
-            push_cv_status(
-                user_id=user.id,
-                cv_id=data["payload"]["cv_id"],
-                status=data["payload"]["status"].split(".")[-1],
-            )
-            create_and_push(
-                user=user,
-                type=data["event_type"],
-                title=data["payload"]["title"],
-                body=data["payload"]["body"],
-                metadata=data.get("metadata", {}),
-            )
-        else:
-            create_and_push(
-                user=user,
-                type=data[
-                    "event_type"
-                ],  # SNS payload's "event_type" -> your "type" param
-                title=data["title"],
-                body=data["body"],
-                metadata=data.get("metadata", {}),
-            )
+        create_and_push(
+            user=user,
+            type=data["event_type"],
+            title=data["title"],
+            body=data["body"],
+            metadata=data.get("metadata", {}),
+        )
 
         return Response(status=status.HTTP_201_CREATED)
