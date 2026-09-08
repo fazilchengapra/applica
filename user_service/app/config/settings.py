@@ -142,6 +142,7 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "ISSUER": "applica-user-service",
+    "USER_ID_CLAIM": "sub",
 }
 
 CACHES = {

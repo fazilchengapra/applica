@@ -18,5 +18,6 @@ class MeSerializer(serializers.ModelSerializer):
             "is_email_verified",
             "is_phone_verified",
             "date_joined",
-            "profile"
+            "profile",
+            "is_staff"
         ]

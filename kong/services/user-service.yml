@@ -35,8 +35,7 @@
             policy: redis
             fault_tolerant: false
             redis_host: redis
-            redis_port: 6379          
-
+            redis_port: 6379
     - name: user-service-v1-email-verify-req
       paths:
         - /api/v1/auth/email/verify/request/
@@ -162,6 +161,20 @@
         - /api/v1/notify/push/
       methods:
         - POST
+      strip_path: false
+      preserve_host: true
+
+      # django admin
+    - name: user-service-admin
+      paths:
+        - /api/admin/
+      strip_path: false
+      preserve_host: true
+
+    # django static files
+    - name: user-service-static
+      paths:
+        - /static/
       strip_path: false
       preserve_host: true
 

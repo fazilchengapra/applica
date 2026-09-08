@@ -115,6 +115,7 @@ class EmailLoginView(APIView):
                     "phone_number": str(user.phone_number),
                     "is_email_verified": user.is_email_verified,
                     "is_phone_verified": user.is_phone_verified,
+                    "roles":user.roles
                 },
             },
             status=status.HTTP_200_OK,

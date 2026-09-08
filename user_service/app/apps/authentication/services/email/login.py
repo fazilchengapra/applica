@@ -25,7 +25,6 @@ def login_user(*, email: str, password: str, request=None) -> dict:
     if not auth_method:
         raise EmailInActiveError("In active email address")
 
-    
     user.last_login = timezone.now()
     user.save(update_fields=["last_login"])
 
@@ -34,6 +33,18 @@ def login_user(*, email: str, password: str, request=None) -> dict:
     )
 
     refresh = RefreshToken.for_user(user)
+
+    roles = ["user"]
+
+    if user.is_staff:
+        roles.append("staff")
+
+    if user.is_superuser:
+        roles.append("admin")
+
+    refresh["roles"] = roles
+
+    user.roles = roles
 
     return {
         "access": str(refresh.access_token),

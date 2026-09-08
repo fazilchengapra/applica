@@ -1,5 +1,7 @@
+local cjson = require "cjson.safe"
+
 local HeaderInjector = {
-    PRIORITY = 900,
+    PRIORITY = 950,
     VERSION = "1.0.0",
 }
 
@@ -26,18 +28,38 @@ function HeaderInjector:access(conf)
                         string.rep("=", 4 - pad)
                 end
 
-                local ok2, decoded =
-                    pcall(ngx.decode_base64, payload_b64)
+                local decoded = ngx.decode_base64(payload_b64)
 
-                if ok2 and decoded then
+                if decoded then
 
-                    local user_id =
-                        decoded:match('"user_id"%s*:%s*"?([%w%-_]+)"?')
+                    -- Convert JSON string → Lua table
+                    local claims, json_err =
+                        cjson.decode(decoded)
 
-                    if user_id then
-                        kong.service.request.set_header(
-                            "X-User-Id",
-                            user_id
+                    if claims then
+
+                        -- Share JWT claims with other plugins
+                        kong.ctx.shared.jwt_claims = claims
+
+                        kong.log.notice(
+                            "JWT CLAIMS: ",
+                            cjson.encode(claims)
+                        )
+
+                        -- Get user ID
+                        local user_id = claims.sub
+
+                        if user_id then
+                            kong.service.request.set_header(
+                                "X-User-Id",
+                                tostring(user_id)
+                            )
+                        end
+
+                    else
+                        kong.log.err(
+                            "Failed to decode JWT JSON: ",
+                            json_err
                         )
                     end
                 end
