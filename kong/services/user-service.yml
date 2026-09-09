@@ -197,7 +197,8 @@
         - name: header_injector
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
-
+    
+    # admin routes for the user app
     - name: admin-routes
       paths:
         - /api/v1/users/admin
