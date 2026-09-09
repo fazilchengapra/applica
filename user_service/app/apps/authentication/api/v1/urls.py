@@ -18,8 +18,11 @@ from .views.email.email_change_req import EmailChangeRequestView
 from .views.email.email_change_confirm import EmailChangeConfirmView
 from .views.oauth.oauth_view import GoogleAuthView
 from .views.phone.add_phone import AddPhoneView
+from .views.admin.admin_authentication import AdminAuthenticationView
 
 urlpatterns = [
+    # admin
+    path("admin/<int:user_id>/", AdminAuthenticationView.as_view()),
     # email
     path("email/verify/request/", RequestEmailVerificationView.as_view()),
     path("email/verify/", VerifyEmailView.as_view()),
