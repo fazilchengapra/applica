@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from app.apps.users.models import User
@@ -97,3 +98,41 @@ def test_admin_can_toggle_user_active_status(api_client):
     user.refresh_from_db()
     assert user.is_active is True
     assert second.data["is_active"] is True
+
+
+def test_admin_can_view_user_overview(api_client):
+    user = User.objects.create_user(
+        email="user@example.com",
+        password="StrongPass123!",
+        phone_number="+919876543210",
+        is_active=False,
+        is_email_verified=True,
+        is_phone_verified=False,
+        deactivated_at=timezone.now(),
+    )
+
+    response = api_client.get(f"/api/v1/users/admin/{user.id}/overview/")
+
+    assert response.status_code == 200
+    assert response.data["id"] == user.id
+    assert response.data["contact"] == {
+        "email": "user@example.com",
+        "phone_number": "+919876543210",
+    }
+    assert response.data["account"]["status"] == "deactivated"
+    assert response.data["account"]["is_active"] is False
+    assert response.data["account"]["is_deactivated"] is True
+    assert response.data["account"]["deactivated_at"] is not None
+    assert response.data["permissions"] == {
+        "is_staff": False,
+        "is_superuser": False,
+    }
+    assert response.data["verification"] == {
+        "email_verified": True,
+        "phone_verified": False,
+    }
+    assert set(response.data["timestamps"]) == {
+        "joined_at",
+        "last_login",
+        "last_updated",
+    }

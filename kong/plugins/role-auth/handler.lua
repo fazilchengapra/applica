@@ -6,7 +6,6 @@ local RoleAuthHandler = {
 
 -- Check if a role exists in a table
 local function has_role(roles, required_role)
-
     for _, role in ipairs(roles) do
 
         if role == required_role then
@@ -21,7 +20,7 @@ end
 
 -- Check whether the user has at least one allowed role
 local function has_allowed_role(user_roles, allowed_roles)
-
+    kong.log.notice("user roles: ", require('cjson').encode(user_roles))
     for _, allowed_role in ipairs(allowed_roles) do
 
         if has_role(user_roles, allowed_role) then
