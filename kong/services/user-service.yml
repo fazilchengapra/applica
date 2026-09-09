@@ -240,10 +240,35 @@
         - name: header_injector
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
-
-    - name: admin-route-user-list
+            
+    # admin routes for the user details
+    - name: admin-route-user
       paths:
         - /api/v1/users
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+          
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
+    # admin route for auth related data
+    - name: admin-route-auth-details
+      paths:
+        - /api/v1/auth/admin/
       strip_path: false
       preserve_host: true
       plugins:
