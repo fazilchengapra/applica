@@ -197,3 +197,69 @@
         - name: header_injector
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+    - name: admin-routes
+      paths:
+        - /api/v1/users/admin
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+          
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
+
+    - name: user-profile-view
+      paths:
+        - /api/v1/users/me
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+    - name: admin-route-user-list
+      paths:
+        - /api/v1/users
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+          
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
