@@ -12,7 +12,8 @@ celery_app = Celery(
         "app.modules.companies.tasks",
         "app.modules.matching.tasks",
         "app.modules.cv_template.tasks",
-        "app.modules.tailoring.tasks.evidence_match_task",
+        "app.modules.tailoring.tasks",
+        "app.modules.tailoring.tasks.strategize_task",
     ],
 )
 

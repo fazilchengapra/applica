@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from sqlalchemy import select
@@ -6,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.master_cv.models.master_cv import MasterCVVersion, MasterCV, CVStatus
 from app.modules.jobs.models.skills import Skill
 from app.modules.master_cv.models.cv_skills import CVSkill
+
+logger = logging.getLogger(__name__)
 
 
 async def get_current_completed_cv(
@@ -21,6 +24,11 @@ async def get_current_completed_cv(
 
     if master_cv is None:
         return None
+
+    logger.info(
+        "==========================master cv===================== %s",
+        master_cv.id,
+    )
 
     query = select(MasterCVVersion).where(
         MasterCVVersion.master_cv == master_cv,

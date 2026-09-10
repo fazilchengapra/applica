@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.core.celery_app import celery_app
 from app.modules.tailoring.agents.evidence_matcher.agent import evidence_matcher_graph
 from app.modules.tailoring.agents.evidence_matcher.prompts import SYSTEM_PROMPT
+from app.modules.tailoring.tasks.strategize_task import strategize_task
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,11 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
 
     try:
         evidence_matrix = asyncio.run(_run())
+        strategize_task.delay(user_id, job_id, evidence_matrix)
         logger.info(
-            "Generated evidence matrix for user_id=%s job_id=%s", user_id, job_id
+            "Generated evidence matrix and queued strategy for user_id=%s job_id=%s",
+            user_id,
+            job_id,
         )
         return evidence_matrix
     except Exception as exc:

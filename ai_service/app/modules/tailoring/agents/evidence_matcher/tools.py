@@ -8,7 +8,6 @@ traceable to an actual database record.
 """
 
 from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from typing import Any
@@ -17,14 +16,16 @@ from uuid import UUID
 from langchain_core.tools import tool
 from sqlalchemy import select
 
-from app.db.session import get_session_context
+# These tools run from Celery workers.  A pooled asyncpg connection created in
+# Celery's parent process cannot safely be reused after the worker forks, so
+# use the worker-safe NullPool session provider.
+from app.db.celery_db import get_celery_db_session as get_session_context
 from app.modules.jobs.models import Job, JobSkill, Skill
 from app.modules.jobs.utils.chunking import chunk_text
 from app.modules.master_cv.models import CVSkill
 from app.modules.matching.repositories.profile_repository import (
     get_current_completed_cv,
 )
-
 
 MAX_TOP_K = 10
 _WORD_RE = re.compile(r"[a-z0-9][a-z0-9+#.\-/]*", re.IGNORECASE)
@@ -120,6 +121,7 @@ async def get_cv_metadata(user_id: int) -> dict[str, Any]:
         cv_id = cv.id
         target_role = cv.target_role
         parsed_data = cv.parsed_data or {}
+        raw_text = cv.raw_text
 
     return {
         "found": True,
@@ -127,6 +129,7 @@ async def get_cv_metadata(user_id: int) -> dict[str, Any]:
         "target_role": target_role,
         "parsed_data": parsed_data,
         "skills": await _cv_skills(cv_id),
+        "raw_text": raw_text
     }
 
 
