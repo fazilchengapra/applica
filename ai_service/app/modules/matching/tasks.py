@@ -19,6 +19,7 @@ from app.modules.matching.repositories.skill_repository import lexical_score
 from app.modules.matching.services.fusion import reciprocal_rank_fusion
 from app.modules.matching.services.reranking_service import rerank_with_llm
 from app.modules.matching.services.save_matches_service import save_matches
+from app.modules.tailoring.tasks.evidence_match_task import evidence_match_task
 
 
 @celery_app.task()
@@ -91,6 +92,9 @@ async def _match_user(user_id: int):
             logger.info("evaluated: %s", evaluated)
             await save_matches(db, user_id, evaluated)
             logger.info(f"Matched user {user_id} against {len(evaluated)} jobs")
+
+            for job_id, _ in evaluated:
+                evidence_match_task.delay(user_id, str(job_id))
 
         except Exception as e:
             await db.rollback()
