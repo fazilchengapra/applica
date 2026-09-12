@@ -22,8 +22,11 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
                     SystemMessage(content=SYSTEM_PROMPT),
                     HumanMessage(
                         content=(
-                            "Evaluate the candidate's CV evidence against the "
-                            f"requirements for job_id={job_id}."
+                            "Evaluate the candidate's CV evidence against the job requirements.\n\n"
+                            f"user_id={user_id}\n"
+                            f"job_id={job_id}\n\n"
+                            "IMPORTANT: Use exactly these IDs when calling tools. "
+                            "Never guess, enumerate, or try different user IDs or job IDs."
                         )
                     ),
                 ],
@@ -37,6 +40,10 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
 
     try:
         evidence_matrix = asyncio.run(_run())
+        logger.info(
+            "===================== evidence matrix =============================== %s",
+            evidence_matrix,
+        )
         strategize_task.delay(user_id, job_id, evidence_matrix)
         logger.info(
             "Generated evidence matrix and queued strategy for user_id=%s job_id=%s",

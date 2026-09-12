@@ -64,7 +64,7 @@ def _rank_chunks(query: str, chunks: Iterable[str]) -> list[tuple[int, str, floa
 async def _cv_skills(cv_id: UUID) -> list[dict[str, str]]:
     async with get_session_context() as session:
         result = await session.execute(
-            select(Skill.name, Skill.normalized_name, CVSkill.skill_type)
+            select(Skill.name, Skill.normalized_name)
             .join(CVSkill, CVSkill.skill_id == Skill.id)
             .where(CVSkill.cv_id == cv_id)
             .order_by(Skill.normalized_name)
@@ -73,7 +73,6 @@ async def _cv_skills(cv_id: UUID) -> list[dict[str, str]]:
             {
                 "name": row.name,
                 "normalized_name": row.normalized_name,
-                "skill_type": row.skill_type,
             }
             for row in result.all()
         ]

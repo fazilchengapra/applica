@@ -20,12 +20,11 @@ async def run_strategist(
     evidence_matrix: dict,
     job_requirements: list[dict],
     candidate_metadata: dict,
-    model: str = "openai/gpt-4o-mini",
 ) -> StrategyBrief:
     # The evidence matcher is the source of truth for claims the strategist may
     # surface. Validate its payload before it reaches the LLM.
     validated_evidence = EvidenceMatrixOutput.model_validate(evidence_matrix)
-    llm = get_llm(model=model).with_structured_output(StrategyBrief)
+    llm = get_llm().with_structured_output(StrategyBrief)
 
     messages = [
         SystemMessage(content=STRATEGIST_SYSTEM_PROMPT),
