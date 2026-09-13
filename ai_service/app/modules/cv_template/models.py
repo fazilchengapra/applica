@@ -1,11 +1,18 @@
 import uuid
 from datetime import datetime
+import enum
 
-from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy import Enum as SAEnum, Boolean, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+
+
+class CVTemplateStatus(str, enum.Enum):
+    pending = "pending"
+    active = "active"
+    failed = "failed"
 
 
 class CVTemplate(Base):
@@ -66,3 +73,12 @@ class CVTemplate(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    status: Mapped[CVTemplateStatus] = mapped_column(
+        SAEnum(
+            CVTemplateStatus, name="cv_template_status", native_enum=False, length=20
+        ),
+        nullable=False,
+        default=CVTemplateStatus.pending,
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
