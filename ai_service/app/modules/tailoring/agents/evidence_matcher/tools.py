@@ -21,6 +21,7 @@ from sqlalchemy import select
 # use the worker-safe NullPool session provider.
 from app.db.celery_db import get_celery_db_session as get_session_context
 from app.modules.jobs.models import Job, JobSkill, Skill
+from app.modules.matching.models import JobMatch
 from app.modules.jobs.utils.chunking import chunk_text
 from app.modules.master_cv.models import CVSkill
 from app.modules.matching.repositories.profile_repository import (
@@ -128,7 +129,7 @@ async def get_cv_metadata(user_id: int) -> dict[str, Any]:
         "target_role": target_role,
         "parsed_data": parsed_data,
         "skills": await _cv_skills(cv_id),
-        "raw_text": raw_text
+        "raw_text": raw_text,
     }
 
 
@@ -173,4 +174,55 @@ async def get_job_requirement_detail(job_id: str) -> dict[str, Any]:
     }
 
 
-TOOLS = [search_cv_chunks, get_cv_metadata, get_job_requirement_detail]
+@tool
+async def get_job_match_context(user_id: int, job_id: str) -> dict[str, Any]:
+    """Fetch the precomputed retrieval/reranking signal for a user-job pair.
+
+    Surfaces the LLM reranker's ``key_matches``/``key_gaps`` and scores from
+    ``job_matches`` so the evidence matcher can prioritise which requirements
+    need fresh CV evidence, instead of re-deriving relevance already computed
+    upstream by the matching pipeline.
+    """
+    try:
+        parsed_job_id = UUID(job_id)
+    except ValueError:
+        return {"found": False, "error": "job_id must be a valid UUID."}
+
+    async with get_session_context() as session:
+        result = await session.execute(
+            select(JobMatch).where(
+                JobMatch.user_id == user_id,
+                JobMatch.job_id == parsed_job_id,
+            )
+        )
+        match = result.scalar_one_or_none()
+
+        if match is None:
+            return {
+                "found": False,
+                "error": "No job_matches record for this user/job pair.",
+            }
+
+    return {
+        "found": True,
+        "job_id": str(match.job_id),
+        "status": match.status,
+        "scores": {
+            "vector_score": match.vector_score,
+            "lexical_score": match.lexical_score,
+            "rrf_score": match.rrf_score,
+            "final_score": match.final_score,
+        },
+        "llm_reasoning": match.llm_reasoning,
+        "key_matches": match.key_matches,
+        "key_gaps": match.key_gaps,
+        "matched_at": match.matched_at.isoformat() if match.matched_at else None,
+    }
+
+
+TOOLS = [
+    search_cv_chunks,
+    get_cv_metadata,
+    get_job_requirement_detail,
+    get_job_match_context,
+]

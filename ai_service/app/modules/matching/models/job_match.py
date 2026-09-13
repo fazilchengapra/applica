@@ -19,6 +19,13 @@ class MatchStatus(str, enum.Enum):
     APPLIED = "applied"
 
 
+class TailoringStatus(str, enum.Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class JobMatch(Base):
     __tablename__ = "job_matches"
 
