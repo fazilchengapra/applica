@@ -13,6 +13,7 @@ from app.dependencies.admin import require_admin
 from app.modules.cv_template.repository import create, get_all, get_by_id, soft_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from app.modules.cv_template.tasks import process_cv_template_task
 
 router = APIRouter(prefix="/admin/cv-templates", tags=["CV Templates"])
@@ -35,26 +36,37 @@ async def create_cv_template(
     existing = await db.scalar(
         select(CVTemplate).where(CVTemplate.tex_hash == tex_hash)
     )
-
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"An identical template already exists (id: {existing.id}, title: '{existing.title}')",
         )
-    template_record = await create(
-        title=payload.title,
-        description=payload.description,
-        tex=payload.tex,
-        tex_hash=tex_hash,
-        db=db,
-    )
-    hash_tex = _hash_tex(payload.tex)
-    print("hash_tex is : ", hash_tex)
+
+    try:
+        template_record = await create(
+            title=payload.title,
+            description=payload.description,
+            tex=payload.tex,
+            tex_hash=tex_hash,
+            db=db,
+        )
+    except IntegrityError:
+        # Lost a race — another request created the identical template first.
+        await db.rollback()
+        existing = await db.scalar(
+            select(CVTemplate).where(CVTemplate.tex_hash == tex_hash)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"An identical template already exists (id: {existing.id}, title: '{existing.title}')",
+        )
+
     process_cv_template_task.delay(str(template_record.id))
     return CreateCVTemplateResponse(
         message="CV template created successfully",
         id=template_record.id,
         title=template_record.title,
+        status=template_record.status,
     )
 
 

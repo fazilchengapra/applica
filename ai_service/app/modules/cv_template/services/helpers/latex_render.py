@@ -13,26 +13,42 @@ def render_tex_to_pdf(tex_source: str, timeout: int = 30) -> bytes:
         tex_file = tmp_path / "template.tex"
         tex_file.write_text(tex_source, encoding="utf-8")
 
-        # Run twice: first pass resolves references/TOC, second pass renders them correctly.
-        for _ in range(2):
-            result = subprocess.run(
-                [
-                    "pdflatex",
-                    "-interaction=nonstopmode",
-                    "-halt-on-error",
-                    "-output-directory",
-                    str(tmp_path),
-                    str(tex_file),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+        cmd = [
+            "pdflatex",
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            "-no-shell-escape",
+            "-output-directory", str(tmp_path),
+            str(tex_file),
+        ]
+
+        # First pass: proves the source compiles at all. Bail immediately on
+        # failure rather than burning a second pass on broken input.
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise LatexCompilationError(
+                f"pdflatex exceeded {timeout}s on first pass — likely pathological input."
+            ) from exc
+
+        if result.returncode != 0:
+            raise LatexCompilationError(_tail(result))
+
+        # Second pass: resolves \ref/\pageref/TOC now that .aux exists.
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise LatexCompilationError(
+                f"pdflatex exceeded {timeout}s on second pass."
+            ) from exc
 
         pdf_file = tmp_path / "template.pdf"
         if result.returncode != 0 or not pdf_file.exists():
-            raise LatexCompilationError(
-                result.stdout or result.stderr or "pdflatex compilation failed"
-            )
+            raise LatexCompilationError(_tail(result))
 
         return pdf_file.read_bytes()
+
+
+def _tail(result: subprocess.CompletedProcess, max_chars: int = 3000) -> str:
+    text = result.stdout or result.stderr or "pdflatex compilation failed with no output"
+    return text[-max_chars:]

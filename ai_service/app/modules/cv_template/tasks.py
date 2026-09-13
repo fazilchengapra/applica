@@ -1,6 +1,7 @@
 import asyncio
 
 from celery import shared_task
+
 from app.db.celery_db import get_celery_db_session
 from app.modules.cv_template.services.orchestrator import process_cv_template
 
