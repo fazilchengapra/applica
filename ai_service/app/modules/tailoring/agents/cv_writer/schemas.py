@@ -60,3 +60,4 @@ class AgentState(TypedDict):
     cv_content: CVContent | None
     validation_errors: list[str]
     revision_count: int
+    critic_verdict: dict | None

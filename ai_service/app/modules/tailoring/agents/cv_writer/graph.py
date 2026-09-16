@@ -49,6 +49,13 @@ async def write_cv(state: AgentState) -> dict:
                     f"cv_metadata:\n{_json(state['cv_metadata'])}\n\n"
                     f"evidence_matrix:\n{state['evidence_matrix'].model_dump_json(indent=2)}\n\n"
                     f"strategy_brief:\n{_json(state['strategy_brief'])}"
+                    + (
+                        "\n\nCritic regeneration feedback (fix every issue without "
+                        "fabricating facts):\n"
+                        + _json(state["critic_verdict"].get("issues", []))
+                        if state.get("critic_verdict")
+                        else ""
+                    )
                 )
             ),
         ]

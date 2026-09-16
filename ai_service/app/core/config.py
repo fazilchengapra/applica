@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     VERIFICATION_APPROVE_THRESHOLD: str
 
+    CRITIC_QUALITY_THRESHOLD: float = 0.75
+    MAX_WRITER_RETRIES: int = 2
+
     SNS_NOTIFICATIONS_TOPIC_ARN: str
     NOTIFICATION_SERVICE_URL: str = "http://kong:8000"
 

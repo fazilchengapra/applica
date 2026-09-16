@@ -107,6 +107,40 @@ async def fail_run(session: AsyncSession, run_id: UUID, error_message: str) -> N
     )
 
 
+async def persist_critic_verdict(
+    session: AsyncSession, run_id: UUID, verdict: dict
+) -> int:
+    """Store every critic pass so in-flight and failed runs remain inspectable."""
+    result = await session.execute(
+        select(TailoringRun).where(TailoringRun.id == run_id).with_for_update()
+    )
+    run = result.scalar_one()
+    run.critic_retry_count += 1
+    run.critic_verdict = verdict
+    await session.flush()
+    return run.critic_retry_count
+
+
+async def queue_writer_retry(session: AsyncSession, run_id: UUID) -> None:
+    """Return an unapproved critic run to the writer stage for regeneration."""
+    await session.execute(
+        update(TailoringRun)
+        .where(
+            TailoringRun.id == run_id,
+            TailoringRun.stage == TailoringStage.critic,
+            TailoringRun.status == TailoringRunStatus.processing,
+        )
+        .values(stage=TailoringStage.write, status=TailoringRunStatus.pending)
+    )
+
+
+async def load_structured_cv_draft(session: AsyncSession, run_id: UUID) -> dict | None:
+    result = await session.execute(
+        select(StructuredCVDraft.content).where(StructuredCVDraft.tailoring_run_id == run_id)
+    )
+    return result.scalar_one_or_none()
+
+
 async def release_stage_for_retry(
     session: AsyncSession, run_id: UUID, stage: TailoringStage, error_message: str
 ) -> None:

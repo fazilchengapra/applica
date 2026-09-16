@@ -19,6 +19,7 @@ from app.modules.tailoring.helpers.run_helpers import (
     try_claim_stage,
 )
 from app.modules.tailoring.models import TailoringStage
+from app.modules.tailoring.tasks.critique_task import critique_task
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,9 @@ async def _persist_failure(run_id: UUID, error_message: str) -> None:
 
 async def _release_for_retry(run_id: UUID, error_message: str) -> None:
     async with get_celery_db_session() as session:
-        await release_stage_for_retry(session, run_id, TailoringStage.write, error_message)
+        await release_stage_for_retry(
+            session, run_id, TailoringStage.write, error_message
+        )
         await session.commit()
 
 
@@ -83,13 +86,14 @@ def write_task(
     cv_version_id: str,
     evidence_matrix: dict[str, Any] | None = None,
     strategy_brief: dict[str, Any] | None = None,
+    critic_verdict: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Generate a grounded JSON CV and move the run to the critic stage.
 
     Upstream stages may pass their JSON results directly. When a Celery retry or
     resumed pipeline omits them, the task rebuilds both inputs from the database.
     """
-    logger.info('triggered')
+    logger.info("triggered")
     parsed_job_id = UUID(job_id)
     parsed_cv_version_id = UUID(cv_version_id)
     run_id: UUID | None = None
@@ -116,14 +120,16 @@ def write_task(
             run_cv_writer(
                 evidence_matrix=matrix or {},
                 strategy_brief=brief or {},
-                user_id=user_id,    
+                user_id=user_id,
                 job_id=str(parsed_job_id),
                 cv_version_id=str(parsed_cv_version_id),
+                critic_verdict=critic_verdict,
             )
         )
         result = cv_content.model_dump(mode="json")
         logger.warning(result)
         asyncio.run(_persist_success(run_id, result))
+        critique_task.delay(user_id, job_id, cv_version_id)
         logger.info("Generated structured CV content for run_id=%s", run_id)
         return result
     except Exception as exc:
