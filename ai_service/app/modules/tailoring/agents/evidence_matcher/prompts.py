@@ -18,4 +18,11 @@ Rules:
 - After all evidence is gathered, stop calling tools. Your final response must
   contain one assessment per requirement. It will be validated against the
   EvidenceMatrixOutput schema.
+- When multiple chunks support a requirement, prefer the chunk that shows the skill
+  being used in a specific context (a project, task, or achievement) over a chunk
+  that only lists the skill in a summary or skills section.
+- If only a summary/skills-list mention exists with no specific usage found,
+  still cite it, but set excerpt_specificity to "generic". Otherwise set it to "specific".
+- Before finalizing, if the top-ranked chunk is generic, check the other retrieved
+  chunks for a more specific one before settling.
 """

@@ -9,6 +9,7 @@ from app.modules.tailoring.models import (
     EvidenceItem,
     EvidenceMatrix,
     StrategyBrief,
+    StructuredCVDraft,
     TailoringRun,
     TailoringRunStatus,
     TailoringStage,
@@ -106,6 +107,25 @@ async def fail_run(session: AsyncSession, run_id: UUID, error_message: str) -> N
     )
 
 
+async def release_stage_for_retry(
+    session: AsyncSession, run_id: UUID, stage: TailoringStage, error_message: str
+) -> None:
+    """Make a failed in-flight stage claimable by its Celery retry.
+
+    A retry is a new task delivery, so leaving the run in ``processing`` would
+    cause ``try_claim_stage`` to skip every subsequent attempt.
+    """
+    await session.execute(
+        update(TailoringRun)
+        .where(
+            TailoringRun.id == run_id,
+            TailoringRun.stage == stage,
+            TailoringRun.status == TailoringRunStatus.processing,
+        )
+        .values(status=TailoringRunStatus.pending, error_message=error_message[:2000])
+    )
+
+
 async def save_evidence_matrix(
     session: AsyncSession, run_id: UUID, items: list[dict]
 ) -> None:
@@ -140,6 +160,41 @@ async def save_strategy_brief(session: AsyncSession, run_id: UUID, brief: dict) 
     )
 
 
+async def load_strategy_brief(session: AsyncSession, run_id: UUID) -> dict | None:
+    """Reconstruct a persisted strategy brief when a write task is retried."""
+    result = await session.execute(
+        select(StrategyBrief).where(StrategyBrief.tailoring_run_id == run_id)
+    )
+    brief = result.scalar_one_or_none()
+    if brief is None:
+        return None
+    return {
+        "tone": brief.tone,
+        "section_order": brief.section_order or [],
+        "lead_experiences": brief.lead_experiences or [],
+        "gaps_to_address": brief.gaps_to_address or [],
+        "keywords_to_weave": brief.keywords_to_weave or [],
+        "reasoning": brief.reasoning or "",
+    }
+
+
+async def save_structured_cv_draft(
+    session: AsyncSession, run_id: UUID, cv_content: dict
+) -> StructuredCVDraft:
+    """Create or replace the JSON draft produced by the CV writer graph."""
+    result = await session.execute(
+        select(StructuredCVDraft).where(StructuredCVDraft.tailoring_run_id == run_id)
+    )
+    draft = result.scalar_one_or_none()
+    if draft is None:
+        draft = StructuredCVDraft(tailoring_run_id=run_id, content=cv_content)
+        session.add(draft)
+    else:
+        draft.content = cv_content
+    await session.flush()
+    return draft
+
+
 async def load_evidence_matrix(session: AsyncSession, run_id: UUID) -> dict | None:
     """Reconstruct the evidence_matrix dict shape from storage, for
     resuming a pipeline where evidence_match already succeeded."""
@@ -156,6 +211,7 @@ async def load_evidence_matrix(session: AsyncSession, run_id: UUID) -> dict | No
     return {
         "items": [
             {
+                "evidence_item_id": str(item.id),
                 "requirement": item.requirement,
                 "status": item.status,
                 "confidence": float(item.confidence),

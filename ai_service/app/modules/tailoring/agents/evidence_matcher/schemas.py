@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 
 class EvidenceMatrixItem(BaseModel):
+    evidence_item_id: str | None = Field(
+        default=None,
+        description="Persisted evidence_items UUID, available after the matrix is stored.",
+    )
     requirement: str = Field(description="The job requirement being evaluated.")
     status: Literal["met", "partial", "not_met"] = Field(
         description="Whether the retrieved CV evidence satisfies the requirement."

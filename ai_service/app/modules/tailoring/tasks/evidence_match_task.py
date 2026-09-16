@@ -15,6 +15,7 @@ from app.modules.tailoring.helpers.run_helpers import (
     advance_stage,
     fail_run,
     get_or_create_run,
+    release_stage_for_retry,
     save_evidence_matrix,
     try_claim_stage,
 )
@@ -73,6 +74,14 @@ async def _persist_failure(run_id: UUID, error_message: str) -> None:
         await session.commit()
 
 
+async def _release_for_retry(run_id: UUID, error_message: str) -> None:
+    async with get_celery_db_session() as session:
+        await release_stage_for_retry(
+            session, run_id, TailoringStage.evidence_match, error_message
+        )
+        await session.commit()
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evidence_match_task(self, user_id: int, job_id: str) -> dict:
     """Build grounded CV evidence for one job, skipping if already done."""
@@ -106,7 +115,9 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
             evidence_matrix,
         )
         asyncio.run(_persist_success(run_id, evidence_matrix))
-        strategize_task.delay(user_id, job_id, str(cv_version_id), evidence_matrix)
+        # Downstream stages reconstruct their inputs from storage.  The in-memory
+        # response has no database-assigned evidence_item_id values yet.
+        strategize_task.delay(user_id, job_id, str(cv_version_id), None)
         logger.info(
             "Generated evidence matrix and queued strategy for user_id=%s job_id=%s",
             user_id,
@@ -119,4 +130,6 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
         )
         if self.request.retries >= self.max_retries:
             asyncio.run(_persist_failure(run_id, str(exc)))
+        else:
+            asyncio.run(_release_for_retry(run_id, str(exc)))
         raise self.retry(exc=exc)

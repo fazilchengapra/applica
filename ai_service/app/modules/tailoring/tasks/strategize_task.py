@@ -1,3 +1,5 @@
+"""Celery stage that turns grounded evidence into a CV tailoring strategy."""
+
 import asyncio
 import logging
 from typing import Any
@@ -15,10 +17,12 @@ from app.modules.tailoring.helpers.run_helpers import (
     fail_run,
     get_or_create_run,
     load_evidence_matrix,
+    release_stage_for_retry,
     save_strategy_brief,
     try_claim_stage,
 )
 from app.modules.tailoring.models import TailoringStage
+from app.modules.tailoring.tasks.write_task import write_task
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +34,10 @@ async def _prepare(
         run, _ = await get_or_create_run(session, user_id, job_id, cv_version_id)
         claimed = await try_claim_stage(session, run.id, TailoringStage.strategy)
 
-        matrix = evidence_matrix
-        if claimed and matrix is None:
+        # Evidence IDs are assigned only by save_evidence_matrix.  Always use
+        # the committed copy, never an upstream Celery payload.
+        matrix = None
+        if claimed:
             matrix = await load_evidence_matrix(session, run.id)
             if matrix is None:
                 await session.rollback()
@@ -54,6 +60,12 @@ async def _persist_failure(run_id: UUID, error_message: str) -> None:
         await session.commit()
 
 
+async def _release_for_retry(run_id: UUID, error_message: str) -> None:
+    async with get_celery_db_session() as session:
+        await release_stage_for_retry(session, run_id, TailoringStage.strategy, error_message)
+        await session.commit()
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def strategize_task(
     self,
@@ -62,14 +74,14 @@ def strategize_task(
     cv_version_id: str,
     evidence_matrix: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Turn a completed evidence matrix into a CV strategy brief."""
+    """Turn a completed evidence matrix into a persisted CV strategy brief."""
     run_id, current_stage, claimed, matrix = asyncio.run(
         _prepare(user_id, UUID(job_id), UUID(cv_version_id), evidence_matrix)
     )
 
     if not claimed:
         logger.info(
-            "Strategy run_id=%s not claimable (stage=%s) — already processing/completed.",
+            "Strategy run_id=%s not claimable (stage=%s); skipping.",
             run_id,
             current_stage,
         )
@@ -84,7 +96,7 @@ def strategize_task(
             raise ValueError(candidate_metadata["error"])
 
         brief = await run_strategist(
-            evidence_matrix=matrix,
+            evidence_matrix=matrix or {},
             job_requirements=job_detail["requirements"],
             candidate_metadata=candidate_metadata,
         )
@@ -93,13 +105,15 @@ def strategize_task(
     try:
         strategy_brief = asyncio.run(_run())
         asyncio.run(_persist_success(run_id, strategy_brief))
-        logger.info("Generated CV strategy for user_id=%s job_id=%s", user_id, job_id)
-        # next: write_task.delay(user_id, job_id, cv_version_id, strategy_brief)
+        # The writer consumes the database snapshots, which include persisted
+        # evidence-item IDs needed by its citation audit.
+        write_task.delay(user_id, job_id, cv_version_id, None, None)
+        logger.info("Generated strategy brief for run_id=%s", run_id)
         return strategy_brief
     except Exception as exc:
-        logger.exception(
-            "CV strategy generation failed for user_id=%s job_id=%s", user_id, job_id
-        )
+        logger.exception("CV strategy generation failed for run_id=%s", run_id)
         if self.request.retries >= self.max_retries:
             asyncio.run(_persist_failure(run_id, str(exc)))
+        else:
+            asyncio.run(_release_for_retry(run_id, str(exc)))
         raise self.retry(exc=exc)

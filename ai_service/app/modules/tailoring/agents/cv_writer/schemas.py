@@ -1,93 +1,62 @@
-from __future__ import annotations
-from datetime import datetime
-from uuid import UUID
-from pydantic import BaseModel, Field
+"""Validated response contract and state for the CV writer graph."""
+
+from typing import Annotated, TypedDict
+
+from langgraph.graph.message import add_messages
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.modules.master_cv.schemas import ContactInfo, Education
+from app.modules.tailoring.agents.evidence_matcher.schemas import EvidenceMatrixOutput
 
 
-# ---- Fetched context (deterministic, pre-LLM) ----
+class StrictResponseModel(BaseModel):
+    """Reject undeclared keys so the persisted payload stays renderer-safe."""
 
-class StrategyBriefDTO(BaseModel):
-    id: UUID
-    tone: str | None = None
-    section_order: list[str] | None = None
-    lead_experiences: list[str] | None = None
-    gaps_to_address: list[str] | None = None
-    keywords_to_weave: list[str] | None = None
-    reasoning: str | None = None
+    model_config = ConfigDict(extra="forbid")
 
 
-class EvidenceItemDTO(BaseModel):
-    id: UUID
-    requirement: str
-    status: str
-    confidence: float
-    evidence_chunk_ids: list[UUID] = Field(default_factory=list)
-    excerpt: str | None = None
-    reasoning: str | None = None
-
-
-class CVChunkDTO(BaseModel):
-    id: UUID
-    section_type: str          # e.g. "experience", "project", "education"
-    content: str
-    metadata: dict = Field(default_factory=dict)  # company, dates, role, etc.
-
-
-class JobDTO(BaseModel):
-    id: UUID
+class TailoredExperience(StrictResponseModel):
     title: str
-    company: str | None = None
-    description: str
-    requirements: list[str] = Field(default_factory=list)
+    company: str
+    location: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    is_current: bool = False
+    bullets: list[str] = Field(min_length=1, max_length=6)
+    evidence_item_ids: list[str] = Field(min_length=1)
+    technologies: list[str] = Field(default_factory=list)
 
 
-class CVTemplateDTO(BaseModel):
-    id: UUID
-    title: str
-    tex: str
+class TailoredProject(StrictResponseModel):
+    name: str
+    bullets: list[str] = Field(min_length=1, max_length=5)
+    evidence_item_ids: list[str] = Field(min_length=1)
+    technologies: list[str] = Field(default_factory=list)
+    url: str | None = None
+    date: str | None = None
 
 
-class WriterContext(BaseModel):
-    """Everything gathered deterministically before the LLM call."""
-    tailoring_run_id: UUID
-    strategy_brief: StrategyBriefDTO
-    evidence_items: list[EvidenceItemDTO]
-    resolved_chunks: dict[UUID, CVChunkDTO]   # keyed by chunk id
-    job: JobDTO
-    template: CVTemplateDTO
+class CVContent(StrictResponseModel):
+    """The renderer-facing JSON document; no prose wrapper is returned."""
+
+    contact: ContactInfo
+    summary: str = Field(min_length=1, max_length=700)
+    experience: list[TailoredExperience] = Field(default_factory=list)
+    education: list[Education] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    certifications: list[str] = Field(default_factory=list)
+    projects: list[TailoredProject] = Field(default_factory=list)
 
 
-# ---- LLM structured output ----
-
-class CVSectionContent(BaseModel):
-    section_name: str
-    content: str                # rendered text/bullets for this section, not raw LaTeX
-    source_chunk_ids: list[UUID] = Field(default_factory=list)  # for critic traceability
-
-
-class CVWriterOutput(BaseModel):
-    sections: list[CVSectionContent]
-    summary_line: str | None = None
-    notes: str | None = None    # LLM's own caveats, e.g. "no evidence found for X, omitted"
-
-
-# ---- Persisted draft ----
-
-class CVDraftDTO(BaseModel):
-    id: UUID
-    tailoring_run_id: UUID
-    cv_template_id: UUID
-    tex_content: str
-    created_at: datetime
-    updated_at: datetime
-
-
-# ---- LangGraph state ----
-
-class WriterState(BaseModel):
-    tailoring_run_id: UUID
-    context: WriterContext | None = None
-    output: CVWriterOutput | None = None
-    tex_content: str | None = None
-    draft: CVDraftDTO | None = None
-    error: str | None = None
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+    tailoring_run_id: str
+    user_id: int
+    job_id: str
+    cv_version_id: str
+    evidence_matrix: EvidenceMatrixOutput
+    strategy_brief: dict
+    cv_metadata: dict | None
+    cv_content: CVContent | None
+    validation_errors: list[str]
+    revision_count: int
