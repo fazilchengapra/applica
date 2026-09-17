@@ -5,6 +5,8 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import update
+
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.db.celery_db import get_celery_db_session
@@ -12,14 +14,21 @@ from app.modules.tailoring.critic.orchestrator import run_critic
 from app.modules.tailoring.helpers.run_helpers import (
     fail_run,
     get_or_create_run,
+    get_structured_cv_draft,
     load_strategy_brief,
-    load_structured_cv_draft,
     persist_critic_verdict,
     queue_writer_retry,
     release_stage_for_retry,
     try_claim_stage,
 )
-from app.modules.tailoring.models import TailoringRunStatus, TailoringStage
+from app.modules.tailoring.helpers.upsert_tailored_cv import upsert_tailored_cv
+from app.modules.tailoring.models import (
+    StructuredCVDraft,
+    TailoredCVStatus,
+    TailoringRun,
+    TailoringRunStatus,
+    TailoringStage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +39,7 @@ async def _prepare(user_id: int, job_id: UUID, cv_version_id: UUID):
         claimed = await try_claim_stage(session, run.id, TailoringStage.critic)
         draft = strategy = None
         if claimed:
-            draft = await load_structured_cv_draft(session, run.id)
+            draft = await get_structured_cv_draft(session, run.id)  # full row: cv_structure + cv_template_id
             strategy = await load_strategy_brief(session, run.id)
             if draft is None or strategy is None:
                 raise ValueError(
@@ -50,12 +59,15 @@ async def _critique(run_id: UUID, draft: dict, strategy: dict) -> tuple[dict, in
         return verdict.model_dump(mode="json"), retry_count
 
 
-async def _complete(run_id: UUID) -> None:
+async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> None:
     async with get_celery_db_session() as session:
-        # The verdict was persisted before this terminal transition.
-        from sqlalchemy import update
-        from app.modules.tailoring.models import TailoringRun
-
+        await upsert_tailored_cv(
+            session,
+            run_id=run_id,
+            cv_structure=draft.content,
+            critic_verdict=verdict,
+            status=TailoredCVStatus.approved,
+        )
         await session.execute(
             update(TailoringRun)
             .where(
@@ -72,10 +84,29 @@ async def _retry_writer(run_id: UUID) -> None:
         await session.commit()
 
 
-async def _fail(run_id: UUID, issues: list[str], reasoning: str = "") -> None:
+async def _fail_exhausted(
+    run_id: UUID, draft: StructuredCVDraft, verdict: dict
+) -> None:
+    """Writer retries exhausted — persist the last rejected draft as a failed tailored_cv."""
     async with get_celery_db_session() as session:
-        message = "; ".join(part for part in [reasoning, "; ".join(issues)] if part)
+        await upsert_tailored_cv(
+            session,
+            run_id=run_id,
+            cv_structure=draft.content,
+            critic_verdict=verdict,
+            status=TailoredCVStatus.failed,
+        )
+        message = "; ".join(
+            part for part in [verdict.get("reasoning", ""), "; ".join(verdict.get("issues", []))] if part
+        )
         await fail_run(session, run_id, message)
+        await session.commit()
+
+
+async def _fail_crash(run_id: UUID, error_message: str) -> None:
+    """Unhandled exception path — no reliable draft/verdict to persist, so just mark the run failed."""
+    async with get_celery_db_session() as session:
+        await fail_run(session, run_id, error_message)
         await session.commit()
 
 
@@ -101,14 +132,12 @@ def critique_task(
             return None
 
         verdict, critic_passes = asyncio.run(
-            _critique(run_id, draft or {}, strategy or {})
+            _critique(run_id, draft.content or {}, strategy or {})
         )
         logger.info("==================verdict==================== %s", verdict)
         if verdict["approved"]:
-            asyncio.run(_complete(run_id))
+            asyncio.run(_complete(run_id, draft, verdict))
             return verdict
-
-        logger.info("====================== draft ============= %s", draft)
 
         # `critic_passes - 1` is the number of writer regenerations already
         # issued before this verdict; this permits exactly MAX_WRITER_RETRIES.
@@ -118,12 +147,12 @@ def critique_task(
 
             write_task.delay(user_id, job_id, cv_version_id, None, None, verdict)
         else:
-            asyncio.run(_fail(run_id, verdict["issues"], verdict["reasoning"]))
+            asyncio.run(_fail_exhausted(run_id, draft, verdict))
         return verdict
     except Exception as exc:
         logger.exception("CV critic failed for run_id=%s", run_id)
         if run_id is not None and self.request.retries >= self.max_retries:
-            asyncio.run(_fail(run_id, [str(exc)]))
+            asyncio.run(_fail_crash(run_id, str(exc)))
         elif run_id is not None:
             asyncio.run(_release(run_id, str(exc)))
         raise self.retry(exc=exc)

@@ -256,3 +256,11 @@ async def load_evidence_matrix(session: AsyncSession, run_id: UUID) -> dict | No
             for item in items_result.scalars().all()
         ]
     }
+
+async def get_structured_cv_draft(
+    session: AsyncSession, run_id: UUID
+) -> StructuredCVDraft | None:
+    """Full draft row (cv_structure + cv_template_id) — for stages that need the template id, not just the JSON."""
+    stmt = select(StructuredCVDraft).where(StructuredCVDraft.tailoring_run_id == run_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
