@@ -7,6 +7,5 @@ from .tailoring_run import (
 from .strategy_brief import StrategyBrief
 from .evidence_matrix import EvidenceMatrix
 from .evidence_item import EvidenceItem
-from .cv_draft import CVDraft
 from .structured_cv_draft import StructuredCVDraft
 from .tailored_cvs import TailoredCV
