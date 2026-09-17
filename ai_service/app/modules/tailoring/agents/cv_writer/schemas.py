@@ -61,3 +61,4 @@ class AgentState(TypedDict):
     validation_errors: list[str]
     revision_count: int
     critic_verdict: dict | None
+    previous_draft: dict | None

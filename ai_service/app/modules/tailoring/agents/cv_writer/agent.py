@@ -14,6 +14,7 @@ async def run_cv_writer(
     job_id: str,
     cv_version_id: str,
     critic_verdict: dict | None = None,
+    previous_draft: dict | None = None,
 ) -> CVContent:
     """Generate a validated renderer-ready tailored CV document."""
     matrix = EvidenceMatrixOutput.model_validate(evidence_matrix)
@@ -32,6 +33,7 @@ async def run_cv_writer(
             "validation_errors": [],
             "revision_count": 0,
             "critic_verdict": critic_verdict,
+            "previous_draft": previous_draft,
         }
     )
     return CVContent.model_validate(result["cv_content"])

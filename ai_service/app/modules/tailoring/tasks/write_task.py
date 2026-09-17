@@ -17,6 +17,7 @@ from app.modules.tailoring.helpers.run_helpers import (
     release_stage_for_retry,
     save_structured_cv_draft,
     try_claim_stage,
+    load_structured_cv_draft
 )
 from app.modules.tailoring.models import TailoringStage
 from app.modules.tailoring.tasks.critique_task import critique_task
@@ -43,13 +44,15 @@ async def _prepare(
         if claimed:
             matrix = await load_evidence_matrix(session, run.id)
             brief = await load_strategy_brief(session, run.id)
+            previous_draft = await load_structured_cv_draft(session, run.id)  # new — None on first pass, populated on retries
+
             if matrix is None or brief is None:
                 await session.rollback()
                 missing = "evidence matrix" if matrix is None else "strategy brief"
                 raise ValueError(f"No stored {missing} for run_id={run.id}")
 
         await session.commit()
-        return run.id, run.stage, claimed, matrix, brief
+        return run.id, run.stage, claimed, matrix, brief, previous_draft
 
 
 async def _persist_success(run_id: UUID, cv_content: dict[str, Any]) -> None:
@@ -99,7 +102,7 @@ def write_task(
     run_id: UUID | None = None
 
     try:
-        run_id, current_stage, claimed, matrix, brief = asyncio.run(
+        run_id, current_stage, claimed, matrix, brief, previous_draft = asyncio.run(
             _prepare(
                 user_id,
                 parsed_job_id,
@@ -124,6 +127,7 @@ def write_task(
                 job_id=str(parsed_job_id),
                 cv_version_id=str(parsed_cv_version_id),
                 critic_verdict=critic_verdict,
+                previous_draft=previous_draft
             )
         )
         result = cv_content.model_dump(mode="json")

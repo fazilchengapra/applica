@@ -41,6 +41,17 @@ async def fetch_static_cv_data(state: AgentState) -> dict:
 
 async def write_cv(state: AgentState) -> dict:
     llm = get_llm().with_structured_output(CVContent)
+    feedback_block = ""
+    if state.get("critic_verdict"):
+        feedback_block = (
+            "\n\nA previous draft was reviewed and rejected. Here is that exact "
+            "draft, followed by the reviewer's issues. Make targeted edits to fix "
+            "each addressable issue — do not regenerate unrelated content, and do "
+            "not fabricate data to satisfy an issue asking for information not "
+            "present in cv_metadata or the evidence matrix:\n\n"
+            f"Previous draft:\n{_json(state.get('previous_draft'))}\n\n"
+            f"Reviewer issues:\n{_json(state['critic_verdict'].get('issues', []))}"
+        )
     result = await llm.ainvoke(
         [
             SystemMessage(content=PROMPT),
@@ -49,17 +60,13 @@ async def write_cv(state: AgentState) -> dict:
                     f"cv_metadata:\n{_json(state['cv_metadata'])}\n\n"
                     f"evidence_matrix:\n{state['evidence_matrix'].model_dump_json(indent=2)}\n\n"
                     f"strategy_brief:\n{_json(state['strategy_brief'])}"
-                    + (
-                        "\n\nCritic regeneration feedback (fix every issue without "
-                        "fabricating facts):\n"
-                        + _json(state["critic_verdict"].get("issues", []))
-                        if state.get("critic_verdict")
-                        else ""
-                    )
+                    + feedback_block
                 )
             ),
         ]
     )
+    if state.get("critic_verdict"):
+        print(state.get("critic_verdict"))
     return {
         "cv_content": _hydrate_static_sections(
             CVContent.model_validate(result), state["cv_metadata"] or {}
@@ -94,7 +101,9 @@ def _audit(state: AgentState) -> list[str]:
         if item.evidence_item_id
     }
     if not valid_ids:
-        errors.append("Evidence matrix has no persisted evidence_item_ids for traceability.")
+        errors.append(
+            "Evidence matrix has no persisted evidence_item_ids for traceability."
+        )
         return errors
 
     entries = [*content.experience, *content.projects]

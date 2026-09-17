@@ -103,10 +103,12 @@ def critique_task(
         verdict, critic_passes = asyncio.run(
             _critique(run_id, draft or {}, strategy or {})
         )
-        logger.info("==================verdict====================", verdict)
+        logger.info("==================verdict==================== %s", verdict)
         if verdict["approved"]:
             asyncio.run(_complete(run_id))
             return verdict
+
+        logger.info("====================== draft ============= %s", draft)
 
         # `critic_passes - 1` is the number of writer regenerations already
         # issued before this verdict; this permits exactly MAX_WRITER_RETRIES.
