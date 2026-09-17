@@ -4,7 +4,6 @@ from app.modules.tailoring.agents.cv_strategist.schemas import StrategyBrief
 from app.modules.tailoring.agents.cv_writer.graph import cv_writer_graph
 from app.modules.tailoring.agents.cv_writer.schemas import CVContent
 from app.modules.tailoring.agents.evidence_matcher.schemas import EvidenceMatrixOutput
-from app.modules.tailoring.helpers.cv_draft_helpers import upsert_cv_draft
 
 
 async def run_cv_writer(
@@ -37,13 +36,5 @@ async def run_cv_writer(
             "previous_draft": previous_draft,
         }
     )
-
-    draft = await upsert_cv_draft(
-        session,
-        tailoring_run_id=tailoring_run_id,
-        cv_template_id=cv_template_id,
-        cv_structure=cv_content.model_dump(mode="json"),
-    )
-    await session.commit()
 
     return CVContent.model_validate(result["cv_content"])
