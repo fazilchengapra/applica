@@ -35,15 +35,15 @@ class Settings(BaseSettings):
 
     VERIFICATION_APPROVE_THRESHOLD: str
 
-    CRITIC_QUALITY_THRESHOLD: float = 0.7
-    MAX_WRITER_RETRIES: int = 1
+    CRITIC_QUALITY_THRESHOLD: float
+    MAX_WRITER_RETRIES: int
 
     SNS_NOTIFICATIONS_TOPIC_ARN: str
     NOTIFICATION_SERVICE_URL: str = "http://kong:8000"
 
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str | None = None
-    LANGSMITH_PROJECT: str = 'test-applica'
+    LANGSMITH_PROJECT: str = "test-applica"
 
     class Config:
         env_file = ".env"
