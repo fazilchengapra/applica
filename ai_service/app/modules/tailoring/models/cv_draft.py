@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import ForeignKey, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -28,7 +28,7 @@ class CVDraft(Base):
         nullable=False,
     )
 
-    tex_content: Mapped[str] = mapped_column(Text, nullable=False)
+    cv_structure: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), nullable=False
