@@ -7,7 +7,11 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.tailoring.agents.base.llm_client import get_llm
-from app.modules.tailoring.agents.cv_writer.prompts import PROMPT, REVISION_PROMPT
+from app.modules.tailoring.agents.cv_writer.prompts import (
+    CRITIC_REVISION_PROMPT,
+    PROMPT,
+    REVISION_PROMPT,
+)
 from app.modules.tailoring.agents.cv_writer.schemas import AgentState, CVContent
 from app.modules.tailoring.agents.cv_writer.tools import get_cv_metadata
 
@@ -41,40 +45,40 @@ async def fetch_static_cv_data(state: AgentState) -> dict:
 
 async def write_cv(state: AgentState) -> dict:
     llm = get_llm().with_structured_output(CVContent)
-    feedback_block = ""
-    if state.get("critic_verdict"):
-        feedback_block = (
-            "\n\nA previous draft was reviewed and rejected. Here is that exact "
-            "draft, followed by the reviewer's issues. Make targeted edits to fix "
-            "each addressable issue — do not regenerate unrelated content, and do "
-            "not fabricate data to satisfy an issue asking for information not "
-            "present in cv_metadata or the evidence matrix:\n\n"
-            f"Previous draft:\n{_json(state.get('previous_draft'))}\n\n"
-            f"Reviewer issues:\n{_json(state['critic_verdict'].get('issues', []))}"
+    is_revision = bool(state.get("critic_verdict"))
+    reference = [
+        f"cv_metadata:\n{_json(state['cv_metadata'])}",
+        f"evidence_matrix:\n{state['evidence_matrix'].model_dump_json(indent=2)}",
+        f"strategy_brief:\n{_json(state['strategy_brief'])}",
+    ]
+    if is_revision:
+        system_prompt = CRITIC_REVISION_PROMPT
+        user_content = "\n\n".join(
+            [
+                "Reviewer issues (fix each one in the draft below):",
+                _json(state["critic_verdict"].get("issues", [])),
+                "Previous draft:",
+                _json(state.get("previous_draft")),
+                "Supporting reference material (grounding only):",
+                *reference,
+            ]
         )
+        stage = "revision"
+    else:
+        system_prompt = PROMPT
+        user_content = "\n\n".join(reference)
+        stage = "generation"
     result = await llm.ainvoke(
-        [
-            SystemMessage(content=PROMPT),
-            HumanMessage(
-                content=(
-                    f"cv_metadata:\n{_json(state['cv_metadata'])}\n\n"
-                    f"evidence_matrix:\n{state['evidence_matrix'].model_dump_json(indent=2)}\n\n"
-                    f"strategy_brief:\n{_json(state['strategy_brief'])}"
-                    + feedback_block
-                )
-            ),
-        ],
+        [SystemMessage(content=system_prompt), HumanMessage(content=user_content)],
         config={
             "run_name": "CV Writer LLM",
             "tags": [
                 "agent:cv_writer",
                 "component:llm",
-                "stage:generation",
+                f"stage:{stage}",
             ],
         },
     )
-    if state.get("critic_verdict"):
-        print(state.get("critic_verdict"))
     return {
         "cv_content": _hydrate_static_sections(
             CVContent.model_validate(result), state["cv_metadata"] or {}
