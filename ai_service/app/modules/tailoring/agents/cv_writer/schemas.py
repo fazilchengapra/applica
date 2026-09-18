@@ -42,10 +42,10 @@ class CVContent(StrictResponseModel):
     contact: ContactInfo
     summary: str = Field(min_length=1, max_length=700)
     experience: list[TailoredExperience] = Field(default_factory=list)
+    projects: list[TailoredProject] = Field(default_factory=list)
     education: list[Education] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
-    projects: list[TailoredProject] = Field(default_factory=list)
 
 
 class AgentState(TypedDict):

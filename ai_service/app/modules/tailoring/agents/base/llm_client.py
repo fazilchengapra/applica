@@ -10,7 +10,7 @@ def get_llm():
         base_url=settings.OPENROUTER_BASE_URL,
         api_key=settings.OPENROUTER_API_KEY,
         temperature=0,
-        max_tokens=4096,
+        max_tokens=8192,
     )
 
 

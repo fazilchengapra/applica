@@ -48,7 +48,7 @@ async def run_critic(
             reasoning="Fabrication check failed; quality review skipped.",
         )
 
-    judgment = await judge_quality(cv_draft, strategy)
+    judgment = await judge_quality(cv_draft, strategy, evidence_items=evidence_items)
     return CriticVerdict(
         approved=judgment.quality_score >= settings.CRITIC_QUALITY_THRESHOLD,
         fabrication_flags=flags,
