@@ -43,6 +43,7 @@ async def _prepare(
         matrix = None
         brief = None
         previous_draft = None
+        critic_verdict = None
         if claimed:
             matrix = await load_evidence_matrix(session, run.id)
             brief = await load_strategy_brief(session, run.id)

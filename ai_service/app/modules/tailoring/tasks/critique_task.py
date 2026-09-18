@@ -80,16 +80,9 @@ async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> No
         await session.commit()
 
 
-async def _retry_writer(run_id: UUID, draft, verdict) -> None:
+async def _retry_writer(run_id: UUID) -> None:
     async with get_celery_db_session() as session:
         await queue_writer_retry(session, run_id)
-        await upsert_tailored_cv(
-            session,
-            run_id=run_id,
-            cv_structure=draft.content,
-            critic_verdict=verdict,
-            status=TailoredCVStatus.approved,
-        )
         await session.commit()
 
 
@@ -156,7 +149,7 @@ def critique_task(
         # `critic_passes - 1` is the number of writer regenerations already
         # issued before this verdict; this permits exactly MAX_WRITER_RETRIES.
         if critic_passes - 1 < settings.MAX_WRITER_RETRIES:
-            asyncio.run(_retry_writer(run_id, draft, verdict))
+            asyncio.run(_retry_writer(run_id))
             from app.modules.tailoring.tasks.write_task import write_task
 
             write_task.delay(user_id, job_id, cv_version_id, None, None, verdict)

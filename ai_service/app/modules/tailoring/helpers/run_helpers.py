@@ -13,7 +13,6 @@ from app.modules.tailoring.models import (
     TailoringRun,
     TailoringRunStatus,
     TailoringStage,
-    TailoredCV,
 )
 
 
@@ -273,11 +272,6 @@ async def get_structured_cv_draft(
 async def load_critic_verdict(session: AsyncSession, run_id: UUID) -> dict | None:
     """Pure read, no commit. Returns the persisted critic verdict for a
     tailoring run, or None if the critic hasn't written one yet."""
-    stmt = (
-        select(TailoredCV.critic_verdict)
-        .where(TailoredCV.tailoring_run_id == run_id)
-        .order_by(TailoredCV.created_at.desc())
-        .limit(1)
-    )
+    stmt = select(TailoringRun.critic_verdict).where(TailoringRun.id == run_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
