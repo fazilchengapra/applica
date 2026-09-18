@@ -63,7 +63,15 @@ async def write_cv(state: AgentState) -> dict:
                     + feedback_block
                 )
             ),
-        ]
+        ],
+        config={
+            "run_name": "CV Writer LLM",
+            "tags": [
+                "agent:cv_writer",
+                "component:llm",
+                "stage:generation",
+            ],
+        },
     )
     if state.get("critic_verdict"):
         print(state.get("critic_verdict"))
@@ -143,7 +151,15 @@ async def revise_cv(state: AgentState) -> dict:
                     f"Current document:\n{content.model_dump_json(indent=2)}"
                 )
             ),
-        ]
+        ],
+        config={
+            "run_name": "CV Writer Revision LLM",
+            "tags": [
+                "agent:cv_writer",
+                "component:llm",
+                "stage:revision",
+            ],
+        },
     )
     return {
         "cv_content": _hydrate_static_sections(

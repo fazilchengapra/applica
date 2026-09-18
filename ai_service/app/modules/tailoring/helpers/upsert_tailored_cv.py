@@ -34,7 +34,7 @@ async def upsert_tailored_cv(
             tailoring_run_id=run_id,
             cv_structure=cv_structure,
             status=status,
-            critic_score=critic_verdict.get("score"),
+            critic_score=critic_verdict.get("quality_score"),
             critic_verdict=critic_verdict,
         )
         .on_conflict_do_update(
@@ -42,7 +42,7 @@ async def upsert_tailored_cv(
             set_={
                 "cv_structure": cv_structure,
                 "status": status,
-                "critic_score": critic_verdict.get("score"),
+                "critic_score": critic_verdict.get("quality_score"),
                 "critic_verdict": critic_verdict,
             },
         )

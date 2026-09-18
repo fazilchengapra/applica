@@ -13,6 +13,7 @@ from app.modules.tailoring.models import (
     TailoringRun,
     TailoringRunStatus,
     TailoringStage,
+    TailoredCV,
 )
 
 
@@ -136,7 +137,9 @@ async def queue_writer_retry(session: AsyncSession, run_id: UUID) -> None:
 
 async def load_structured_cv_draft(session: AsyncSession, run_id: UUID) -> dict | None:
     result = await session.execute(
-        select(StructuredCVDraft.content).where(StructuredCVDraft.tailoring_run_id == run_id)
+        select(StructuredCVDraft.content).where(
+            StructuredCVDraft.tailoring_run_id == run_id
+        )
     )
     return result.scalar_one_or_none()
 
@@ -257,10 +260,24 @@ async def load_evidence_matrix(session: AsyncSession, run_id: UUID) -> dict | No
         ]
     }
 
+
 async def get_structured_cv_draft(
     session: AsyncSession, run_id: UUID
 ) -> StructuredCVDraft | None:
     """Full draft row (cv_structure + cv_template_id) — for stages that need the template id, not just the JSON."""
     stmt = select(StructuredCVDraft).where(StructuredCVDraft.tailoring_run_id == run_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def load_critic_verdict(session: AsyncSession, run_id: UUID) -> dict | None:
+    """Pure read, no commit. Returns the persisted critic verdict for a
+    tailoring run, or None if the critic hasn't written one yet."""
+    stmt = (
+        select(TailoredCV.critic_verdict)
+        .where(TailoredCV.tailoring_run_id == run_id)
+        .order_by(TailoredCV.created_at.desc())
+        .limit(1)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()

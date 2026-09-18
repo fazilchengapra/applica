@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str
     OPENROUTER_BASE_URL: str
 
+    # writer model
+    WRITER_MODEL: str
+
     # celery
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str

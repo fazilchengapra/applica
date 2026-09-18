@@ -39,7 +39,9 @@ async def _prepare(user_id: int, job_id: UUID, cv_version_id: UUID):
         claimed = await try_claim_stage(session, run.id, TailoringStage.critic)
         draft = strategy = None
         if claimed:
-            draft = await get_structured_cv_draft(session, run.id)  # full row: cv_structure + cv_template_id
+            draft = await get_structured_cv_draft(
+                session, run.id
+            )  # full row: cv_structure + cv_template_id
             strategy = await load_strategy_brief(session, run.id)
             if draft is None or strategy is None:
                 raise ValueError(
@@ -78,9 +80,16 @@ async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> No
         await session.commit()
 
 
-async def _retry_writer(run_id: UUID) -> None:
+async def _retry_writer(run_id: UUID, draft, verdict) -> None:
     async with get_celery_db_session() as session:
         await queue_writer_retry(session, run_id)
+        await upsert_tailored_cv(
+            session,
+            run_id=run_id,
+            cv_structure=draft.content,
+            critic_verdict=verdict,
+            status=TailoredCVStatus.approved,
+        )
         await session.commit()
 
 
@@ -97,7 +106,12 @@ async def _fail_exhausted(
             status=TailoredCVStatus.failed,
         )
         message = "; ".join(
-            part for part in [verdict.get("reasoning", ""), "; ".join(verdict.get("issues", []))] if part
+            part
+            for part in [
+                verdict.get("reasoning", ""),
+                "; ".join(verdict.get("issues", [])),
+            ]
+            if part
         )
         await fail_run(session, run_id, message)
         await session.commit()
@@ -142,7 +156,7 @@ def critique_task(
         # `critic_passes - 1` is the number of writer regenerations already
         # issued before this verdict; this permits exactly MAX_WRITER_RETRIES.
         if critic_passes - 1 < settings.MAX_WRITER_RETRIES:
-            asyncio.run(_retry_writer(run_id))
+            asyncio.run(_retry_writer(run_id, draft, verdict))
             from app.modules.tailoring.tasks.write_task import write_task
 
             write_task.delay(user_id, job_id, cv_version_id, None, None, verdict)

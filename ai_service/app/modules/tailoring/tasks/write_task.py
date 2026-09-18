@@ -17,7 +17,8 @@ from app.modules.tailoring.helpers.run_helpers import (
     release_stage_for_retry,
     save_structured_cv_draft,
     try_claim_stage,
-    load_structured_cv_draft
+    load_structured_cv_draft,
+    load_critic_verdict
 )
 from app.modules.tailoring.models import TailoringStage
 from app.modules.tailoring.tasks.critique_task import critique_task
@@ -41,10 +42,12 @@ async def _prepare(
         # only this matrix contains the evidence_item_id values assigned by DB.
         matrix = None
         brief = None
+        previous_draft = None
         if claimed:
             matrix = await load_evidence_matrix(session, run.id)
             brief = await load_strategy_brief(session, run.id)
-            previous_draft = await load_structured_cv_draft(session, run.id)  # new — None on first pass, populated on retries
+            previous_draft = await load_structured_cv_draft(session, run.id)
+            critic_verdict= await load_critic_verdict(session, run.id)
 
             if matrix is None or brief is None:
                 await session.rollback()
@@ -52,7 +55,7 @@ async def _prepare(
                 raise ValueError(f"No stored {missing} for run_id={run.id}")
 
         await session.commit()
-        return run.id, run.stage, claimed, matrix, brief, previous_draft
+        return run.id, run.stage, claimed, matrix, brief, previous_draft, critic_verdict
 
 
 async def _persist_success(run_id: UUID, cv_content: dict[str, Any]) -> None:
@@ -102,7 +105,7 @@ def write_task(
     run_id: UUID | None = None
 
     try:
-        run_id, current_stage, claimed, matrix, brief, previous_draft = asyncio.run(
+        run_id, current_stage, claimed, matrix, brief, previous_draft, critic_verdict = asyncio.run(
             _prepare(
                 user_id,
                 parsed_job_id,

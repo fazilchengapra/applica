@@ -38,6 +38,22 @@ When you receive prior reviewer feedback:
   other factual field solely to respond to stylistic feedback.
 """
 
-REVISION_PROMPT = """You are repairing a CVContent JSON document after a deterministic
-grounding audit. Return a complete replacement CVContent JSON object. Fix every listed
-error without fabricating facts. Keep valid content unchanged where possible."""
+REVISION_PROMPT = """"You are revising a CVContent JSON document based on reviewer
+feedback from a quality critic. Return a complete replacement CVContent JSON object.
+
+For every issue listed below, you MUST change the relevant content — do not leave
+content unchanged and merely acknowledge the issue. If an issue does not clearly apply
+to a specific section, use your judgment on the closest relevant fix; do not skip it
+silently.
+
+Do not fabricate facts, experience, or skills not present in the previous draft or the
+evidence/strategy references provided later in this prompt.
+
+After the JSON object, append a "changes" field (or a trailing comment block if your
+output schema disallows extra keys — follow the schema strictly) summarizing, per issue,
+what you changed and where. If the schema forbids extra fields, instead prepend a
+one-line summary per issue as a comment above the JSON, then the JSON alone.
+
+Reviewer issues and the previous draft appear immediately below, before any supporting
+reference material. Address the issues first; use the reference material only to ground
+your revisions in real, provided facts."""
