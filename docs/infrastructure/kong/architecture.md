@@ -10,7 +10,7 @@ Applica Backend follows a **microservice architecture**. Instead of clients comm
 
 Kong acts as the single entry point into the system.
 
-![System Architecture](/docs/images/architecture.png)
+![System Architecture](../../images/architecture.png)
 
 This approach centralizes networking, security, and traffic management while allowing each service to focus only on business logic.
 

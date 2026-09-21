@@ -89,7 +89,6 @@ changed.
 
 ## Field notes
 
-- `display_name` — public-facing name, falls back to `first_name` if unset.
-- `avatar_url` — read-only here; check whether avatar upload is handled by
-  this app or elsewhere (not present in this spec — likely a separate
-  endpoint using Cloudinary, per the stack notes).
+- `display_name` — public-facing name; `save()` auto-fills from `first_name` if unset.
+- `avatar_url` — read-only here; set elsewhere (not exposed in the current
+  spec — likely a future upload endpoint; no Cloudinary integration is wired).

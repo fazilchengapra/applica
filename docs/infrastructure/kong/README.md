@@ -30,9 +30,9 @@ Kong provides a centralized gateway that:
 
 - Routes requests to the correct microservice
 - Hides internal service architecture from clients
-- Applies authentication consistently
-- Enforces rate limits
-- Injects common headers (such as User ID ,Correlation ID, and Gateway Secret)
+- Applies authentication consistently (JWT cookie verification)
+- Enforces rate limits (Redis-backed, per-route)
+- Injects common headers (`X-User-Id`, `X-Gateway-Secret`, `X-Request-ID`)
 - Collects logs and metrics
 - Supports custom plugins written in Lua
 - Makes future scaling easier
@@ -44,7 +44,6 @@ Client
    │
    ├── User Service
    ├── AI Service
-   ├── Payment Service
    └── Notification Service
 ```
 
@@ -59,8 +58,12 @@ With Kong:
           └─────────────────────┘
            │          │        │   
            ▼          ▼        ▼
-    User Service AI Service Payment Service
+    User Service AI Service Notification
 ```
+
+> Note: the three backends here are `user_service`, `ai_service`, and
+> `notification_service` — see [architecture](../../architecture/system-overview.md)
+> for the full picture.
 
 ---
 
@@ -71,15 +74,18 @@ With Kong:
                        │
                        ▼
                ┌────────────────┐
-               │  Kong Gateway  │
+               │  Kong Gateway  │ :8000 (proxy) / :8001 (admin, dev)
                └────────────────┘
                      │
       ┌──────────────┼──────────────┐
       ▼              ▼              ▼
- User Service    AI Service    Future Services
-      │              │
+ User Service    AI Service   Notification
+      │              │          Service
       ▼              ▼
- PostgreSQL      Redis / AI Models
+ PostgreSQL    PostgreSQL + pgvector
+      │            / Redis
+      ▼
+ Redis
 ```
 
 Every incoming request passes through Kong before reaching the appropriate backend service.

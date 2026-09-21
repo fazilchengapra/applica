@@ -2,11 +2,11 @@
 
 ## Overview
 
-One PostgreSQL database (RDS), owned exclusively by `user_service`.
+One PostgreSQL database (`applica_db`), owned exclusively by `user_service`.
 No other service should read/write these tables directly — go through the API.
 
 Cross-service references (e.g. `ai_service`'s `master_cvs.user_id`) are stored as
-plain UUIDs, never as real foreign keys. Each service owns its own database —
+plain integers/uuids, never as real foreign keys. Each service owns its own database —
 see the note on `master_cvs` at the bottom of this doc.
 
 ## Core tables
@@ -130,7 +130,7 @@ Django Channels and also readable via a standard list/mark-read API.
 | Field | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | uuid | PK | UUID rather than bigint — notification IDs are referenced client-side (e.g. mark-as-read by ID) and a UUID avoids leaking volume/sequence info. |
-| `user_id` | uuid | NN, FK → `users.id` | *(Shown as uuid on the diagram — confirm this matches `users.id`'s actual bigint type, or whether it's intentionally a separate reference; worth double-checking for a type mismatch.)* |
+| `user_id` | bigint | NN, FK → `users.id` | Owning user. bigint matches `users.id`. |
 | `type` | varchar(64) | NN | Dot-prefixed convention, e.g. `account.password_changed`, `auth.new_login`. Namespacing keeps the type space organized as event types grow. |
 | `title` | varchar(255) | NN | |
 | `body` | text | | |

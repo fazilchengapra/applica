@@ -1,147 +1,126 @@
 # Routing
 
-This document explains how Kong routes incoming requests to backend services and how public and protected endpoints are organized.
-
----
-
-# Overview
-
-Kong acts as the single entry point for all external API requests.
-
-Instead of clients communicating directly with backend services, every request first reaches Kong, which determines the correct destination based on the configured routes.
-
-```
-                Client
-                   │
-                   ▼
-          ┌─────────────────┐
-          │   Kong Gateway  │
-          └─────────────────┘
-            │            │
-            ▼            ▼
-     User Service    AI Service
-```
+How Kong routes incoming requests to backend services, and how public vs
+protected endpoints are organized.
 
 ---
 
 # Services
 
-A **Service** in Kong represents a backend application that receives forwarded requests.
-
-Each service defines where Kong should send traffic after a route has been matched.
-
-Current services:
+A **Service** in Kong represents a backend application that receives forwarded
+requests. Each service defines where Kong sends traffic after a route matches.
+Defined in [`kong/services/*.yml`](../../../kong/services/):
 
 | Service | Purpose | Backend URL |
-|----------|---------|-------------|
-| User Service | Authentication, profile management, user operations | `http://user-service:8000` |
-| AI Service | Resume parsing, AI processing, CV optimization | `http://ai-service:8000` |
+|---|---|---|
+| `user-service` | Accounts, auth, profiles, notify dispatch | `http://user-service:8000` |
+| `ai-service` | CV processing, matching, tailoring | `http://ai-service:8001` |
+| `notification-service` | Email/SMS/realtime dispatch, WS | `http://notification_service:8000` |
 
-Example configuration:
-
-```yaml
-services:
-  - name: user-service
-    url: http://user-service:8000
-
-  - name: ai-service
-    url: http://ai-service:8000
-```
+> All services run with `strip_path: false` and `preserve_host: true`, so the
+> path prefix is forwarded unchanged and the original host header is kept.
 
 ---
 
-# Routes
+# Routes (21 total)
 
-A **Route** defines which incoming requests belong to a particular service.
+## user-service (17 routes) — `kong/services/user-service.yml`
 
-Kong matches the request path, method, host, or other criteria and forwards the request to the associated service.
+| Route | Paths | Plugins |
+|---|---|---|
+| `user-service-v1-session` | `/api/v1/auth/token/refresh/`, `/api/v1/auth/logout/` | rate-limit 60/min |
+| `user-service-v1-email-verify` | `/api/v1/auth/email/verify/` | rate-limit 10/hour |
+| `user-service-v1-email-verify-req` | `/api/v1/auth/email/verify/request/` | rate-limit 5/hour |
+| `user-service-v1-email-login` | `/api/v1/auth/email/login/` | rate-limit 10/min |
+| `user-service-v1-phone-login-req` | `/api/v1/auth/phone/login/request/` | rate-limit 5/hour |
+| `user-service-v1-phone-login` | `/api/v1/auth/phone/login/verify/` | rate-limit 10/min |
+| `user-service-v1-password-forgot` | `/api/v1/auth/password/forgot/` | rate-limit 5/hour |
+| `user-service-v1-password-reset` | `/api/v1/auth/password/reset/` | rate-limit 10/hour |
+| `user-service-v1-google` | `/api/v1/auth/google/` | rate-limit 10/min |
+| `user-service-v1-users-public` | `/api/v1/users/`, `/api/v1/notify/push/` (POST only) | — |
+| `user-service-admin` | `/api/admin/` | — |
+| `user-service-static` | `/static/` | — |
+| `user-service-v1-protected` | `/api/v1/auth`, `/api/v1/user`, `/api/v1/profile` | jwt + header_injector |
+| `admin-routes` | `/api/v1/users/admin` | jwt + header_injector + role-auth (admin, staff) |
+| `user-profile-view` | `/api/v1/users/me` | jwt + header_injector |
+| `admin-route-user` | `/api/v1/users` | jwt + header_injector + role-auth |
+| `admin-route-auth-details` | `/api/v1/auth/admin/` | jwt + header_injector + role-auth |
 
-Example:
+## ai-service (1 route) — `kong/services/ai-service.yml`
 
-| Request | Destination |
-|----------|-------------|
-| `/api/v1/auth/*` | User Service |
-| `/api/v1/profile/*` | User Service |
-| `/api/v1/master-cv/*` | AI Service |
-| `/api/v1/job/*` | AI Service |
+| Route | Paths | Plugins |
+|---|---|---|
+| `ai-service-v1-protected` | `/api/ai/v1` | jwt + header_injector |
 
-Example route configuration:
+## notification-service (3 routes) — `kong/services/notification-service.yml`
 
-```yaml
-services:
-  - name: user-service
-    url: http://user-service:8000
-    routes:
-      - name: user-public
-        paths:
-          - /api/v1/auth
-
-  - name: ai-service
-    url: http://ai-service:8000
-    routes:
-      - name: ai-service-route
-        paths:
-          - /api/v1
-```
+| Route | Paths | Plugins |
+|---|---|---|
+| `realtime-cv-status` | `/api/v1/notifications/realtime/cv-status` | — |
+| `notification-dispatch-secure` | `/api/v1/notifications` | internal-secret-auth |
+| `websocket-connection` | `/ws/notifications/` | jwt + header_injector |
 
 ---
 
 # Public vs Protected Endpoints
 
-Routes can be categorized as either **public** or **protected**.
+## Public endpoints (no JWT)
 
-## Public Endpoints
+| Endpoint | Notes |
+|---|---|
+| `POST /api/v1/auth/email/login/` | rate-limited |
+| `POST /api/v1/auth/google/` | rate-limited |
+| `POST /api/v1/auth/phone/login/request/` and `/verify/` | rate-limited |
+| `POST /api/v1/auth/password/forgot/` and `/reset/` | rate-limited |
+| `POST /api/v1/auth/email/verify/` and `/request/` | rate-limited |
+| `POST /api/v1/users/` | registration |
+| `POST /api/v1/notify/push/` | internal dispatch (service-side secret check) |
+| `POST /api/v1/notifications/realtime/cv-status` | realtime status ingest |
+| `/api/admin/`, `/static/` | Django admin/static (no gateway plugins) |
+| `/health` | health check |
 
-Public endpoints do not require user authentication.
+## Protected endpoints (JWT required)
 
-Typical examples include:
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/v1/auth/login` | User login |
-| `POST /api/v1/auth/register` | User registration |
-| `POST /api/v1/auth/forgot-password` | Password reset request |
-| `POST /api/v1/auth/reset-password` | Reset password |
-
-These endpoints are accessible without a JWT token.
-
----
-
-## Protected Endpoints
-
-Protected endpoints require a valid JWT access token.
-
-Examples:
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/v1/profile` | Get current profile |
-| `PUT /api/v1/profile` | Update profile |
-| `POST /api/v1/master-cv` | Upload resume |
-| `DELETE /api/v1/master-cv/{id}` | Delete resume |
-
-Request example:
+Protected routes validate the JWT **at Kong** from the `access_token` cookie:
 
 ```http
-GET /api/v1/profile HTTP/1.1
-Cookie: access_token=<jwt-access-token>
+GET /api/v1/users/me HTTP/1.1
+Cookie: access_token=<jwt>
 ```
 
-Kong extracts the JWT from the incoming HTTP cookie, validates the token, and forwards the request only if authentication succeeds. If the cookie is missing, expired, or contains an invalid token, Kong returns an authentication error without forwarding the request to the backend service.
+On success Kong injects `X-User-Id`, `X-Gateway-Secret` (and on admin routes
+`X-Admin-Authorized` via `role-auth`) before forwarding. On failure Kong
+returns `401` without reaching the backend — see
+[authentication](./authentication.md) and [headers](./headers.md).
+
+| Endpoint | Notes |
+|---|---|
+| `/api/v1/auth/*`, `/api/v1/user/*`, `/api/v1/profile*` | jwt + header_injector |
+| `/api/v1/users/me` | jwt + header_injector |
+| `/api/v1/users/admin`, `/api/v1/users`, `/api/v1/auth/admin/` | + role-auth (admin, staff) |
+| `/api/ai/v1` | jwt + header_injector |
 
 ---
 
-# Routing Flow
+# Routing flow
 
-The request lifecycle is as follows:
+Request lifecycle:
 
-![System Architecture](/docs/images/routing-flow.png)
+```
+Client → Kong (proxy :8000)
+   → route match (path prefix → service)
+   → execute plugins (jwt → header_injector → role-auth → rate-limiting)
+   → forward to backend with injected headers
+   → response back through Kong → client
+```
 
 ---
 
 # Summary
 
-- **Services** define backend applications.
+- **Services** define backend applications (3 in this repo).
 - **Routes** determine which requests belong to each service.
-- **Public endpoints** are accessible without authentication.
-- **Protected endpoints** require a valid JWT and are authenticated by Kong before requests reach the backend.
+- **Public endpoints** are accessible without authentication (but often
+  rate-limited).
+- **Protected endpoints** require a valid JWT cookie; Kong authenticates before
+  requests reach the backend and injects identity/gateway headers.

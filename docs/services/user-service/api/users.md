@@ -67,21 +67,21 @@ Retrieves the authenticated user's own account details.
 
 ---
 
-## Delete account
+## Delete account (soft-delete)
 
 `DELETE /me/`
 
-Permanently deletes the authenticated user's account after confirming their
-password.
+Soft-deletes the authenticated user's account: requires password confirmation,
+sets `deactivated_at`, blacklists outstanding refresh tokens (`revoke_all_tokens_task`),
+and clears auth cookies.
 
 | Status | Meaning |
 |---|---|
-| 204 | Account deleted. Auth cookies cleared. |
+| 204 | Account deactivated (soft-delete). Auth cookies cleared. |
 | 400 | Validation error, or incorrect password. |
 
-> Note: the spec doesn't show a request body schema for this endpoint in the
-> current version — confirm whether password confirmation is sent as a body
-> field or handled another way, and document it here.
+> `DeactivatedAt` distinguishes "user paused their account" from Django's
+> `is_active` (admin disabled). The row is not hard-deleted.
 
 ---
 

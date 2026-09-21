@@ -1,203 +1,188 @@
-# Applica — `notification_service` Overview
+# notification_service
 
-## 1. What it does
+Node.js (Express 5 + TypeScript) service. Handles **all outbound
+notifications** for the platform:
 
-`notification_service` (Node.js / Express / TypeScript) handles **all outbound notifications**:
+- **Email** — account events (registration, verification, password, email
+  change) via Gmail SMTP (Nodemailer)
+- **SMS / OTP** — phone verification and login OTPs via Twilio
+- **Realtime** — WebSocket push (CV processing status) via Redis pub/sub + `ws`
 
-- **Email** — account events, resume ready, job matches
-- **SMS** — OTP, alerts
-- **Realtime push** — WebSocket updates (CV processing, AI chat, mock interviews)
+Producers are `user_service` (auth events) and `ai_service` (CV pipeline
+events). This service only receives events and delivers them.
 
-`user_service` and `ai_service` produce the events. This service only delivers them.
+> ⚠️ This doc describes the **actual implementation**. Older versions of this
+> doc described an SNS → SQS → Lambda → BullMQ fan-out and Kong HMAC
+> authentication — **those are not implemented**. The real path is a single
+> authenticated HTTP endpoint that enqueues directly into BullMQ.
 
-There are three delivery paths:
+## Delivery paths (actual)
 
-1. **Email** → SNS (`applica-notifications`) → SQS: email queue → Lambda trigger → BullMQ → worker → Nodemailer/Gmail
-2. **OTP / SMS** → same SNS topic, but its own SQS: OTP queue → Lambda trigger → BullMQ → worker → Twilio
-3. **Realtime push** → via Kong (`internal-secret-auth` HMAC) → Redis connection registry → WebSocket
-4. **AI chat / mock interview** → per-session Redis pub/sub (separate, bypasses everything above)
+```
+user_service / ai_service
+        │  HTTP POST /api/v1/notifications/internal/dispatch
+        ▼  (through Kong; X-Internal-Service header enforced)
+notification_service (Express)
+        │  Zod-validate event → switch(eventType)
+        ├── email events  ──▶ BullMQ "email-dispatch"  ──▶ emailWorker ──▶ Nodemailer/Gmail
+        └── otp events    ──▶ BullMQ "otp-dispatch"     ──▶ otpWorker   ──▶ Twilio
 
----
-
-## 2. Component Map
-
-```mermaid
-flowchart TB
-    subgraph Producers
-        US["user_service"]
-        AI["ai_service"]
-    end
-
-    KONG["Kong Gateway<br/>JWT + X-User-Id / HMAC auth"]
-
-    SNS["SNS: applica-notifications<br/>(single topic)"]
-
-    subgraph Email Path
-        SNS --> SQS_E["SQS: email"] --> LAMBDA_E["Lambda trigger"] --> BQ_EMAIL["BullMQ: email"] --> W_EMAIL["worker-email"] --> GMAIL["Nodemailer/Gmail"]
-    end
-
-    subgraph OTP Path
-        SNS --> SQS_O["SQS: OTP"] --> LAMBDA_O["Lambda trigger"] --> BQ_OTP["BullMQ: OTP"] --> W_PHONE["worker-phone"] --> TWILIO["Twilio"]
-    end
-
-    subgraph Realtime Path
-        RTKONG["Kong<br/>(internal-secret-auth, HMAC)"] --> REGISTRY["Redis Registry<br/>userId → instance_id"] --> RTGW["Realtime Gateway"]
-    end
-
-    CLIENT["Client<br/>(single WS connection)"]
-
-    US -- "email events" --> KONG --> SNS
-    US -- "OTP events" --> KONG --> SNS
-
-    AI -- "realtime events (e.g. cv.processing_complete)<br/>+ HMAC headers" --> RTKONG
-
-    RTGW <-. "channel: notification | chat" .-> CLIENT
+ai_service ──▶ POST /api/v1/notifications/realtime/cv-status
+                  │
+                  ▼
+              Redis pub/sub (channel: notification:cv-status)
+                  ▼
+              WebSocket (ws/notifications) ──▶ client { event: "cv.updated" }
 ```
 
----
-
-## 3. Flow 1 — Email
+### Email flow
 
 ```mermaid
 sequenceDiagram
-    participant U as user_service / ai_service
+    participant P as user_service / ai_service
     participant K as Kong
-    participant SNS as SNS (applica-notifications)
-    participant SQS as SQS: email queue
-    participant L as Lambda trigger
-    participant BQ as BullMQ (email)
-    participant W as worker-email
-    participant M as Nodemailer/Gmail
+    participant N as notification_service
+    participant Q as BullMQ (email-dispatch)
+    participant W as emailWorker
+    participant G as Gmail SMTP
 
-    U->>K: Publish event (e.g. resume.ready)
-    K->>SNS: Forward
-    SNS->>SQS: Fan-out to email queue
-    SQS->>L: Trigger Lambda
-    L->>BQ: Enqueue email job
-    BQ->>W: Pick up job
-    W->>M: Send email
-    Note over W: Failure caught & logged (Pino) — never propagated
+    P->>K: POST dispatch { event } (X-Internal-Service)
+    K->>N: forward
+    N->>N: Zod validate + route by eventType
+    N->>Q: add job "send-email"
+    Q->>W: pick up job
+    W->>G: Nodemailer send
+    Note over W: failure rethrown → BullMQ retry (3 attempts, backoff 30s)
 ```
 
-**Notes**
-- Routing by event `type` via Zod discriminated unions.
-- Email currently goes through **Nodemailer/Gmail only** — AWS SES is not in use yet.
-- Uses the same **single SNS topic** (`applica-notifications`) as OTP — separated at the SQS layer, one queue per channel.
+### SMS/OTP flow
 
----
-
-## 4. Flow 2 — SMS / OTP
-
-Now follows the **same async shape as email** — just with its own dedicated SQS queue and Lambda trigger, so it's isolated from the email pipeline.
+Same shape as email, but its own queue + worker:
 
 ```mermaid
 sequenceDiagram
-    participant U as user_service
-    participant K as Kong
-    participant SNS as SNS (applica-notifications)
-    participant SQS as SQS: OTP queue
-    participant L as Lambda trigger
-    participant BQ as BullMQ (OTP)
-    participant W as worker-phone
+    participant N as notification_service
+    participant Q as BullMQ (otp-dispatch)
+    participant W as otpWorker
     participant T as Twilio
 
-    U->>K: Publish event (OTP)
-    K->>SNS: Forward
-    SNS->>SQS: Fan-out to OTP queue
-    SQS->>L: Trigger Lambda
-    L->>BQ: Enqueue OTP job
-    BQ->>W: Pick up job
-    W->>T: Send SMS
-    Note over W: Failure caught & logged (Pino) — never propagated
+    N->>Q: add job "otp-dispatch"
+    Q->>W: pick up job
+    W->>T: client.messages.create(...)
 ```
 
-**Notes**
-- No longer a direct sync HMAC call — OTP is now async, mirroring the email path.
-- Publishes to the **same single SNS topic** (`applica-notifications`) as email; separated by having its own dedicated SQS queue and Lambda trigger, so the two pipelines don't share fan-out or throughput limits.
-
----
-
-## 5. Flow 3 — Realtime Push (CV Processing, etc.)
-
-**Not via SNS/SQS.** `ai_service` calls `notification_service` through **Kong**, authenticated with the same `internal-secret-auth` HMAC scheme used for internal dispatch, and the message is routed straight to the connection registry for delivery.
+### Realtime flow
 
 ```mermaid
 sequenceDiagram
     participant AI as ai_service
-    participant K as Kong (internal-secret-auth)
     participant NS as notification_service
-    participant R as Redis Registry
-    participant GW as Realtime Gateway
-    participant CL as Client WebSocket
+    participant R as Redis pub/sub
+    participant WS as WebSocket server
+    participant CL as Client
 
-    AI->>K: cv.processing_complete + HMAC headers
-    K->>K: Verify HMAC-SHA256
-    K->>NS: Forward
-    NS->>R: Lookup userId → instance_id
-    alt User connected
-        R-->>NS: instance_id found
-        NS->>GW: Route to owning instance
-        GW->>CL: Push { channel: "notification", ...payload }
-    else User offline
-        NS->>NS: Drop / persist for next login
-    end
+    AI->>NS: POST /realtime/cv-status { userId, cvId, status }
+    NS->>NS: Zod validate payload
+    NS->>R: publish channel notification:cv-status
+    R->>WS: relay
+    WS->>CL: { event: "cv.updated", data }
 ```
 
-**Notes**
-- No SNS/SQS/BullMQ in this path — it goes through Kong via the `internal-secret-auth` HMAC route, same auth mechanism as other internal dispatch, but delivery is synchronous straight to the registry (no BullMQ queue in between).
-- One WebSocket per client; messages tagged `channel: "notification"` vs `"chat"`.
-- Redis registry (`userId → instance_id`) lets any gateway instance find the socket owner, which is what makes the gateway shardable.
+## Event routing
 
----
+`src/modules/notifications/controllers/eventsController.ts` routes every event
+by `eventType` (`src/constants/eventTypes.ts`):
 
-## 6. Flow 4 — AI Chat / Mock Interview (fully separate)
+| Event type | Channel | Template |
+|---|---|---|
+| `account.verification_requested` | Email | verification |
+| `account.user_registered` | Email | registration complete |
+| `account.email_change_requested` | Email | confirm new address |
+| `account.email_changed` | Email | confirmation |
+| `account.password_changed` | Email | confirmation |
+| `account.forgot_password_req` | Email | reset link (uses `FRONTEND_URL`) |
+| `account.password_reset_completed` | Email | confirmation |
+| `account.sms_verification_otp` | SMS | Twilio |
+| `account.sms_login_otp` | SMS | Twilio |
 
-```mermaid
-sequenceDiagram
-    participant CL as Client WebSocket
-    participant GW as Realtime Gateway
-    participant PS as Redis Pub/Sub (per session)
-    participant AI as ai_service
+## API endpoints
 
-    CL->>GW: { channel: "chat", sessionId, text }
-    GW->>PS: Publish
-    PS->>AI: Relay to session handler
-    AI->>PS: Publish response
-    PS->>GW: Relay back
-    GW->>CL: { channel: "chat", ...payload }
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| `GET` | `/health` | Health check | none |
+| `POST` | `/api/v1/notifications/internal/dispatch` | Main event ingestion → BullMQ | `X-Internal-Service: notification-dispatcher` (set by Kong `internal-secret-auth`) |
+| `POST` | `/api/v1/notifications/realtime/cv-status` | Publish CV status → WebSocket | none (fronted by Kong) |
+| `WS` | `/ws/notifications` | Client push channel | `X-User-Id` header (injected by Kong `header_injector`) |
+
+## Queues (BullMQ)
+
+| Queue | Jobs | Worker (concurrency 10) |
+|---|---|---|
+| `email-dispatch` | `send-email` | `emailWorker` |
+| `otp-dispatch` | `otp-dispatch` | `otpWorker` |
+| `push-dispatch` | — | **unused / dead queue** (no worker or provider yet) |
+
+Job config: 3 attempts, exponential backoff @ 30s, `removeOnComplete: 1000`
+(`src/modules/notifications/service.ts`).
+
+## Database (Prisma)
+
+Prisma 7 is installed with a multi-file schema (`prisma/schema/`) pointing at
+the `notification_postgres` database (host port 5434) — but **only a
+placeholder `Test` model exists and no `PrismaClient` is used at runtime**.
+The service is effectively stateless today; queues and Redis hold all state.
+
+## Configuration
+
+Env vars validated by `src/config/env.ts` (see `.env` in the service dir):
+
+| Var | Purpose |
+|---|---|
+| `PORT` | HTTP port (default 3002, `.env` sets 8000) |
+| `NODE_ENV` | `development` / `production` |
+| `DATABASE_URL` | Prisma DSN (currently unused at runtime) |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Nodemailer Gmail credentials |
+| `REDIS_HOST` / `REDIS_PORT` | BullMQ (db 3) + realtime (db 4) |
+| `TWILIO_FROM_NUMBER` / `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | SMS |
+| `FRONTEND_URL` | Forgot-password links |
+
+## Running
+
+```bash
+cd notification_service
+npm install
+cp .env.example .env     # NOTE: .env.example is currently empty — see .env
+npm run dev              # API server (ts-node-dev)
+npm run start:worker     # BullMQ workers (separate process)
 ```
 
-**Notes**
-- Same WebSocket connection as notifications, separated only by the `channel` tag.
-- Session-scoped pub/sub, not the user-scoped connection registry.
-- No SNS, SQS, or BullMQ involved — kept separate for latency reasons.
+Via Docker (recommended):
 
----
+```bash
+docker compose up --build notification_service notification-worker
+```
 
-## 7. Comparison Table
+## Tests
 
-| Flow | Trigger | Transport | Queue | Worker | Terminal Action |
-|---|---|---|---|---|---|
-| Email | Business event | SNS → SQS → Lambda | `email` | `worker-email` | Nodemailer/Gmail send |
-| SMS / OTP | Business event | SNS → SQS → Lambda | `OTP` | `worker-phone` | Twilio send |
-| Realtime push | Async event (e.g. `cv.processing_complete`) | **Kong (internal-secret-auth HMAC)** | — | — (routed via registry) | WS push |
-| AI chat / interview | Live session turn | Redis pub/sub (per-session) | — | Realtime Gateway | WS push, same socket |
+**None exist.** The `tests/` directory is empty, the `test` script is a stub,
+and `package.json` has no `build` script even though the Dockerfile production
+stage runs `npm run build` (production image build would fail today).
 
----
+## External integrations
 
-## 8. Kong Recap
+| Integration | Direction | Where |
+|---|---|---|
+| Gmail SMTP (Nodemailer) | outbound | `src/providers/email/gmail.ts` |
+| Twilio | outbound | `src/providers/phone/phone.ts` |
+| Redis | in/out | BullMQ + pub/sub (`src/config/redis.ts`) |
+| Kong | inbound auth | injects `X-Internal-Service`, `X-User-Id`, `X-Gateway-Secret` |
+| PostgreSQL (Prisma) | configured only | not used at runtime |
 
-- **User-facing routes:** JWT + `header_injector` → injects `X-User-Id`.
-- **Internal secret-bearing dispatch:** `internal-secret-auth` (HMAC-SHA256, `X-Internal-Signature` + `X-Internal-Timestamp`) — now used for the **realtime push** path (`ai_service` → Kong → `notification_service`), since OTP moved off it to the async SNS/SQS/Lambda pipeline.
-- Active cleanup: `kong.yml` field-name mismatches, YAML anchor reuse, confirming plugin scope is limited to the realtime dispatch route.
+## Docs in this service
 
----
+- [Setup](./setup.md) — run it locally / via docker
 
-## 9. Infra Notes
+## Related
 
-- Workers: `notification-worker-email`, `notification-worker-phone`, `notification-worker-realtime` — one per channel, for provider isolation.
-- Queues: BullMQ (Redis-backed), separate per channel.
-- Schema: Prisma v7 (pinned), multi-file schema under `prisma/schema/`.
-- DB: PostgreSQL on port `5434`.
-- Logging: Pino.
-- Failure isolation: every delivery attempt is wrapped so failures are logged, never propagated to the caller.
+- [Service map](../../architecture/service-map.md)
+- [Kong routing for this service](../../infrastructure/kong/routing.md)
