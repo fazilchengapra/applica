@@ -18,5 +18,110 @@
 
         - name: header_injector
           config:
-            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"  
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+    # admin-only: trigger external job fetches (paid API/LLM work)
+    - name: ai-jobs-fetch-admin
+      paths:
+        - /api/ai/v1/jobs/fetch
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
+
+        - name: rate-limiting
+          route: ai-jobs-fetch-admin
+          config:
+            hour: 20
+            limit_by: ip
+            policy: redis
+            fault_tolerant: false
+            redis_host: redis
+            redis_port: 6379
+
+    # admin-only: trigger company collection and verification
+    - name: ai-companies-admin
+      paths:
+        - /api/ai/v1/companies/admin
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
+
+        - name: rate-limiting
+          route: ai-companies-admin
+          config:
+            hour: 30
+            limit_by: ip
+            policy: redis
+            fault_tolerant: false
+            redis_host: redis
+            redis_port: 6379
+
+    # admin-only: ai admin endpoints (master-cv, cv-templates)
+    - name: ai-master-admin
+      paths:
+        - /api/ai/v1/admin
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+        - name: role-auth
+          config:
+            allowed_roles:
+              - admin
+              - staff
+
+        - name: rate-limiting
+          route: ai-master-admin
+          config:
+            minute: 60
+            limit_by: ip
+            policy: redis
+            fault_tolerant: false
+            redis_host: redis
+            redis_port: 6379  
       

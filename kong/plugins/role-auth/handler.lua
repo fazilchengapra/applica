@@ -76,6 +76,9 @@ function RoleAuthHandler:access(conf)
 
     end
 
+    -- Authorized: mark the request as admin for downstream services
+    kong.service.request.set_header("X-Admin-Authorized", "true")
+
 end
 
 
