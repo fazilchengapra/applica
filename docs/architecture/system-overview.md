@@ -114,5 +114,6 @@ sequenceDiagram
 
 - [Service map](./service-map.md)
 - [Architecture decisions](./decisions/)
+- [Mock interview system (design, planned)](./mock-interview.md)
 - [Kong gateway](../infrastructure/kong/README.md)
 - [Local development](../guides/local-development.md)

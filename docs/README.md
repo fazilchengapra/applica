@@ -30,7 +30,8 @@ operated.
 
 - [System overview](./architecture/system-overview.md) — services, request flows, diagrams
 - [Service map](./architecture/service-map.md) — apps/modules per service
-- [Architecture decisions](./architecture/decisions/) — ADR-0001, ADR-0002
+- [Mock interview system (design, planned)](./architecture/mock-interview.md) — LiveKit + agent design, ADR-0004
+- [Architecture decisions](./architecture/decisions/) — ADR-0001 … ADR-0004
 - Service docs:
   - [user_service](./services/user-service/README.md)
   - [ai_service](./services/ai-service/README.md)

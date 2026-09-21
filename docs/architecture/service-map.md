@@ -67,3 +67,5 @@ App composition in `src/`. API under `/api/v1/notifications`.
 
 - [System overview](./system-overview.md)
 - [Architecture decisions](./decisions/)
+- [Mock interview system (design, planned)](./mock-interview.md) — planned
+  `ai_service.interviews` module, `interview-agent` + `livekit` compose services
