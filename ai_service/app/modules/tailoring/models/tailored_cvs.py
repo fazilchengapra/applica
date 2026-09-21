@@ -32,6 +32,12 @@ class TailoredCV(Base):
         unique=True,
         index=True,
     )
+    cv_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cv_templates.id"),
+        nullable=True,
+        index=True,
+    )
     status: Mapped[str] = mapped_column(
         Enum(TailoredCVStatus, name="tailored_cv_status"), nullable=False
     )
