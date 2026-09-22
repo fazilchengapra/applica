@@ -10,6 +10,7 @@ from sqlalchemy import update
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.db.celery_db import get_celery_db_session
+from app.modules.cv_render.tasks import render_tailored_cv_task
 from app.modules.tailoring.critic.orchestrator import run_critic
 from app.modules.tailoring.helpers.run_helpers import (
     fail_run,
@@ -23,6 +24,7 @@ from app.modules.tailoring.helpers.run_helpers import (
 )
 from app.modules.tailoring.helpers.upsert_tailored_cv import upsert_tailored_cv
 from app.modules.tailoring.models import (
+    CVRenderStatus,
     StructuredCVDraft,
     TailoredCVStatus,
     TailoringRun,
@@ -61,15 +63,20 @@ async def _critique(run_id: UUID, draft: dict, strategy: dict) -> tuple[dict, in
         return verdict.model_dump(mode="json"), retry_count
 
 
-async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> None:
+async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> UUID | None:
+    """Persist the approved TailoredCV. If a template is attached, mark it
+    processing so the render task can start immediately; otherwise leave it
+    pending and let the user trigger rendering with a template later."""
     async with get_celery_db_session() as session:
-        await upsert_tailored_cv(
+        tailored_cv = await upsert_tailored_cv(
             session,
             run_id=run_id,
             cv_structure=draft.content,
             critic_verdict=verdict,
             status=TailoredCVStatus.approved,
         )
+        if tailored_cv.cv_template_id is not None:
+            tailored_cv.render_status = CVRenderStatus.processing
         await session.execute(
             update(TailoringRun)
             .where(
@@ -78,6 +85,7 @@ async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> No
             .values(status=TailoringRunStatus.completed)
         )
         await session.commit()
+        return tailored_cv.id if tailored_cv.cv_template_id is not None else None
 
 
 async def _retry_writer(run_id: UUID) -> None:
@@ -143,7 +151,9 @@ def critique_task(
         )
         logger.info("==================verdict==================== %s", verdict)
         if verdict["approved"]:
-            asyncio.run(_complete(run_id, draft, verdict))
+            tailored_cv_id = asyncio.run(_complete(run_id, draft, verdict))
+            if tailored_cv_id is not None:
+                render_tailored_cv_task.delay(str(tailored_cv_id))
             return verdict
 
         # `critic_passes - 1` is the number of writer regenerations already

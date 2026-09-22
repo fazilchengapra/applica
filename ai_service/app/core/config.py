@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     CRITIC_QUALITY_THRESHOLD: float
     MAX_WRITER_RETRIES: int
 
+    EVIDENCE_MATCH_SCORE_THRESHOLD: float = 0.7
+
     SNS_NOTIFICATIONS_TOPIC_ARN: str
     NOTIFICATION_SERVICE_URL: str = "http://kong:8000"
 

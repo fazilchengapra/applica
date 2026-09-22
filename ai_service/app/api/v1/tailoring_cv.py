@@ -10,7 +10,12 @@ from app.core.dependencies import get_current_user_id
 from app.db.session import get_db
 from app.modules.cv_render.tasks import render_tailored_cv_task
 from app.modules.cv_template.repository import get_by_id as get_active_template
-from app.modules.tailoring.models import CVRenderStatus, TailoredCV, TailoringRun
+from app.modules.tailoring.models import (
+    CVRenderStatus,
+    TailoredCV,
+    TailoredCVStatus,
+    TailoringRun,
+)
 from app.modules.tailoring.schemas import (
     RenderCVAccepted,
     RenderCVRequest,
@@ -72,6 +77,11 @@ async def render_tailored_cv(
     db: AsyncSession = Depends(get_db),
 ):
     tailored_cv = await _get_owned_tailored_cv(db, tailored_cv_id, user_id)
+    if tailored_cv.status != TailoredCVStatus.approved:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only approved tailored CVs can be rendered",
+        )
     template = await get_active_template(db, body.template_id)
     if template is None or not template.is_active:
         raise HTTPException(

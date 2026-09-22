@@ -65,5 +65,5 @@ async def patch_match_status(
 async def refresh_matches(
     user_id: int = Depends(get_current_user_id),
 ):
-    match_user_task.delay(str(user_id))
+    match_user_task.delay(int(user_id))
     return {"detail": "Matching started", "user_id": user_id}

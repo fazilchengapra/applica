@@ -4,6 +4,7 @@ import logging
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
+from app.core.config import settings
 from app.db.celery_db import get_celery_db_session
 from app.modules.master_cv.models.master_cv import CVStatus, MasterCV, MasterCVVersion
 
@@ -67,7 +68,7 @@ async def _dispatch_daily_job_matching(batch_size: int):
 async def _match_user(user_id: int):
     async with get_celery_db_session() as db:
         try:
-            user = await get_user_profile(db, user_id)
+            user = await get_user_profile(db, int(user_id))
             job_ids = await prefilter_jobs(db, user)
 
             if not job_ids:
@@ -93,7 +94,17 @@ async def _match_user(user_id: int):
             await save_matches(db, user_id, evaluated)
             logger.info(f"Matched user {user_id} against {len(evaluated)} jobs")
 
-            for job_id, _ in evaluated:
+            chainable = [
+                (job_id, ev)
+                for job_id, ev in evaluated
+                if ev.relevance_score >= settings.EVIDENCE_MATCH_SCORE_THRESHOLD
+            ]
+            logger.info(
+                "Dispatching evidence matching for %s of %s matched jobs",
+                len(chainable),
+                len(evaluated),
+            )
+            for job_id, _ in chainable:
                 evidence_match_task.delay(user_id, str(job_id))
 
         except Exception as e:

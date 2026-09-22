@@ -118,9 +118,6 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
                 run_id,
                 current_stage,
             )
-            # A later stage previously failed and this task got redelivered.
-            # Hand off to strategize_task, which will load the stored
-            # evidence matrix and claim its own stage.
             strategize_task.delay(user_id, job_id, str(cv_version_id), None)
         else:
             logger.info(
