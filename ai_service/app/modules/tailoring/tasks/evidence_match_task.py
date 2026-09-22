@@ -3,9 +3,11 @@ import logging
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from sqlalchemy import select
 
 from app.core.celery_app import celery_app
 from app.db.celery_db import get_celery_db_session
+from app.modules.matching.models.job_match import JobMatch
 from app.modules.matching.repositories.profile_repository import (
     get_current_completed_cv,
 )
@@ -23,6 +25,16 @@ from app.modules.tailoring.models import TailoringStage
 from app.modules.tailoring.tasks.strategize_task import strategize_task
 
 logger = logging.getLogger(__name__)
+
+
+async def _check_match_exists(user_id: int, job_id: UUID) -> bool:
+    async with get_celery_db_session() as session:
+        result = await session.execute(
+            select(JobMatch).where(
+                JobMatch.user_id == user_id, JobMatch.job_id == job_id
+            )
+        )
+        return result.scalar_one_or_none() is not None
 
 
 async def _prepare(user_id: int, job_id: UUID):
@@ -85,6 +97,15 @@ async def _release_for_retry(run_id: UUID, error_message: str) -> None:
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evidence_match_task(self, user_id: int, job_id: str) -> dict:
     """Build grounded CV evidence for one job, skipping if already done."""
+    matched = asyncio.run(_check_match_exists(user_id, UUID(job_id)))
+    if not matched:
+        logger.info(
+            "Skipping evidence match for user_id=%s job_id=%s: no job_matches row",
+            user_id,
+            job_id,
+        )
+        return {"skipped": True, "reason": "no_job_match"}
+
     run_id, current_stage, claimed, cv_version_id = asyncio.run(
         _prepare(user_id, UUID(job_id))
     )
