@@ -1,7 +1,7 @@
 # app/modules/companies/models.py
 import uuid
 import enum
-from sqlalchemy import String, Enum as SAEnum, Integer, DateTime
+from sqlalchemy import String, Enum as SAEnum, DateTime, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
@@ -36,7 +36,7 @@ class Company(Base):
         nullable=False,
     )
 
-    confidence_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
 
     verified_website_url: Mapped[str | None] = mapped_column(
         String,

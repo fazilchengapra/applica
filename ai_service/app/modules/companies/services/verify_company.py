@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.modules.companies.models import Company
+from app.modules.companies.models import Company, CompanyStatus
 from app.modules.companies.schemas import EvidenceBundle, VerificationResult
 from app.modules.companies.utils.serpapi import fetch_search_results, parse_evidence
 from app.modules.companies.exceptions import (
@@ -23,10 +23,13 @@ async def get_company_or_raise(session: AsyncSession, company_id: UUID) -> Compa
     return company
 
 
-async def gather_evidence(company: Company) -> EvidenceBundle:
-    # if company.verification_evidence is not None:
-    #     print("Using cached evidence for company:", company.normalized_name)
-    #     return EvidenceBundle.model_validate(company.verification_evidence)
+async def gather_evidence(company: Company, force_refresh: bool = False) -> EvidenceBundle:
+    if not force_refresh and company.verification_evidence is not None:
+        try:
+            return EvidenceBundle.model_validate(company.verification_evidence)
+        except Exception:
+            # cached evidence is malformed or from an old schema; refetch
+            pass
 
     website_res, linkedin_res, reddit_res = await fetch_search_results(
         company.normalized_name
@@ -63,12 +66,14 @@ async def apply_verdict(
     evidence: EvidenceBundle,
     result: VerificationResult,
 ) -> Company:
-    if result.confidence >= float(
+    if result.verdict == "needs_admin_review":
+        final_status = CompanyStatus.PENDING_REVIEW.value
+    elif result.confidence >= float(
         settings.VERIFICATION_APPROVE_THRESHOLD
     ) and result.verdict in ("approved", "rejected"):
         final_status = result.verdict
     else:
-        final_status = "pending_review"
+        final_status = CompanyStatus.PENDING_REVIEW.value
 
     company.status = final_status
     company.confidence_score = result.confidence
@@ -83,9 +88,10 @@ async def apply_verdict(
     return company
 
 
-async def verify_company(session: AsyncSession, company_id: UUID) -> Company:
+async def verify_company(
+    session: AsyncSession, company_id: UUID, force_refresh: bool = False
+) -> Company:
     company = await get_company_or_raise(session, company_id)
-    evidence = await gather_evidence(company)
+    evidence = await gather_evidence(company, force_refresh=force_refresh)
     result = await decide_verification(company.normalized_name, evidence)
-    print("result is : ", result)
     return await apply_verdict(session, company, evidence, result)

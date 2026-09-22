@@ -38,6 +38,10 @@ class Settings(BaseSettings):
 
     VERIFICATION_APPROVE_THRESHOLD: str
 
+    # company verification
+    COMPANY_AUTO_VERIFY_ENABLED: bool = True
+    COMPANY_AUTO_VERIFY_DAILY_LIMIT: int = 50
+
     CRITIC_QUALITY_THRESHOLD: float
     MAX_WRITER_RETRIES: int
 

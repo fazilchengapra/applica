@@ -1,4 +1,6 @@
 from typing import Literal
+from uuid import UUID
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -16,3 +18,24 @@ class VerificationResult(BaseModel):
     website_url: str | None = None
     linkedin_url: str | None = None
     reasoning: str
+
+
+class CompanyAdminOut(BaseModel):
+    id: UUID
+    normalized_name: str
+    display_name: str
+    status: str
+    confidence_score: float | None = None
+    verified_website_url: str | None = None
+    verified_linkedin_url: str | None = None
+    verification_reasoning: str | None = None
+    verification_evidence: dict | None = None
+    verified_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class CompanyAdminActionResponse(BaseModel):
+    id: UUID
+    status: str
+    message: str
