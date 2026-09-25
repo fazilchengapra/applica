@@ -80,6 +80,7 @@ default queue `ai_service_queue`, broker/backend = Redis (compose: db 1 / db 2).
 
 - [Setup](./setup.md) — run it locally / via docker
 - [CV Processing](./CV_PROCESSING.md)
+- [Tailoring agents — workflow architecture](./TAILORING_AGENTS.md)
 
 ## Related
 
