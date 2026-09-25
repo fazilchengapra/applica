@@ -22,29 +22,41 @@ async def upsert_tailored_cv(
     cv_structure: dict[str, Any],
     critic_verdict: dict[str, Any],
     status: TailoredCVStatus,
+    cv_template_id: UUID | None = None,
 ) -> TailoredCV:
     """
     Persist the terminal outcome of a tailoring run — approved or failed-out
     after exhausting writer retries. Upserts by tailoring_run_id so a stray
     re-run of the critic task never creates a duplicate row.
+
+    ``cv_template_id`` is only overwritten when supplied, so a critic retry that
+    has no template context does not erase a selection made by an earlier pass.
     """
+    values: dict[str, Any] = {
+        "tailoring_run_id": run_id,
+        "cv_structure": cv_structure,
+        "status": status,
+        "critic_score": critic_verdict.get("quality_score"),
+        "critic_verdict": critic_verdict,
+    }
+    if cv_template_id is not None:
+        values["cv_template_id"] = cv_template_id
+
+    set_ = {
+        "cv_structure": cv_structure,
+        "status": status,
+        "critic_score": critic_verdict.get("quality_score"),
+        "critic_verdict": critic_verdict,
+    }
+    if cv_template_id is not None:
+        set_["cv_template_id"] = cv_template_id
+
     stmt = (
         insert(TailoredCV)
-        .values(
-            tailoring_run_id=run_id,
-            cv_structure=cv_structure,
-            status=status,
-            critic_score=critic_verdict.get("quality_score"),
-            critic_verdict=critic_verdict,
-        )
+        .values(**values)
         .on_conflict_do_update(
             index_elements=[TailoredCV.tailoring_run_id],
-            set_={
-                "cv_structure": cv_structure,
-                "status": status,
-                "critic_score": critic_verdict.get("quality_score"),
-                "critic_verdict": critic_verdict,
-            },
+            set_=set_,
         )
         .returning(TailoredCV)
     )

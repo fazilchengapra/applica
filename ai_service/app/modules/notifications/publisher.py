@@ -11,6 +11,7 @@ async def publish_event(event_type: str, user_id: str, payload: dict) -> None:
         async with httpx.AsyncClient(timeout=5) as client:
             response = await client.post(
                 f"{settings.NOTIFICATION_SERVICE_URL}/api/v1/notifications/realtime/cv-status",
+                headers={"X-Internal-Secret": settings.GATEWAY_INTERNAL_SECRET},
                 json={
                     "userId": str(user_id),
                     "cvId": str(payload["cv_id"]),

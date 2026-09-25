@@ -215,18 +215,32 @@ async def load_strategy_brief(session: AsyncSession, run_id: UUID) -> dict | Non
 
 
 async def save_structured_cv_draft(
-    session: AsyncSession, run_id: UUID, cv_content: dict
+    session: AsyncSession,
+    run_id: UUID,
+    cv_content: dict,
+    cv_template_id: UUID | None = None,
 ) -> StructuredCVDraft:
-    """Create or replace the JSON draft produced by the CV writer graph."""
+    """Create or replace the JSON draft produced by the CV writer graph.
+
+    ``cv_template_id`` is preserved across retries: a retry that omits it keeps
+    whatever the previous pass selected, so a caller re-running the writer does
+    not silently reset the run to an unrenderable state.
+    """
     result = await session.execute(
         select(StructuredCVDraft).where(StructuredCVDraft.tailoring_run_id == run_id)
     )
     draft = result.scalar_one_or_none()
     if draft is None:
-        draft = StructuredCVDraft(tailoring_run_id=run_id, content=cv_content)
+        draft = StructuredCVDraft(
+            tailoring_run_id=run_id,
+            content=cv_content,
+            cv_template_id=cv_template_id,
+        )
         session.add(draft)
     else:
         draft.content = cv_content
+        if cv_template_id is not None:
+            draft.cv_template_id = cv_template_id
     await session.flush()
     return draft
 

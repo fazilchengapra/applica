@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.core.celery_app import celery_app
 from app.db.celery_db import get_celery_db_session
+from app.modules.cv_template.repository import get_default_active
 from app.modules.tailoring.agents.cv_writer.agent import run_cv_writer
 from app.modules.tailoring.helpers.run_helpers import (
     advance_stage,
@@ -61,7 +62,10 @@ async def _prepare(
 
 async def _persist_success(run_id: UUID, cv_content: dict[str, Any]) -> None:
     async with get_celery_db_session() as session:
-        await save_structured_cv_draft(session, run_id, cv_content)
+        template = await get_default_active(session)
+        await save_structured_cv_draft(
+            session, run_id, cv_content, template.id if template else None
+        )
         await advance_stage(session, run_id)
         await session.commit()
 

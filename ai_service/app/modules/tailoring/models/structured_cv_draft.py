@@ -27,6 +27,12 @@ class StructuredCVDraft(Base):
         unique=True,
     )
     content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    cv_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("cv_templates.id"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

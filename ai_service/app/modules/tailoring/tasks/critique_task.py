@@ -74,6 +74,7 @@ async def _complete(run_id: UUID, draft: StructuredCVDraft, verdict: dict) -> UU
             cv_structure=draft.content,
             critic_verdict=verdict,
             status=TailoredCVStatus.approved,
+            cv_template_id=draft.cv_template_id,
         )
         if tailored_cv.cv_template_id is not None:
             tailored_cv.render_status = CVRenderStatus.processing

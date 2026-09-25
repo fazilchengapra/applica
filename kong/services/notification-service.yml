@@ -7,6 +7,10 @@
         - /api/v1/notifications/realtime/cv-status
       strip_path: false
       preserve_host: true
+      plugins:
+        - name: internal-secret-auth
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
 
     - name: notification-dispatch-secure
       paths:

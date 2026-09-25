@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireInternalService } from "../.../../../../../middleware/internalAuth.middleware";
+import { requireInternalService } from "../../../../middleware/internalAuth.middleware";
 import { handleIncomingEvent } from "../../controllers/eventsController";
 
 const router = Router();

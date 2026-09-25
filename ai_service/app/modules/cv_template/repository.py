@@ -62,6 +62,19 @@ async def get_by_id(
     return await db.scalar(stmt)
 
 
+async def get_default_active(db: AsyncSession) -> CVTemplate | None:
+    """The most recently created active template, used when a tailoring run
+    has no explicit template choice. Returns None when no template is active,
+    which leaves the run renderable later via the public render endpoint."""
+    stmt = (
+        select(CVTemplate)
+        .where(CVTemplate.is_active.is_(True), CVTemplate.deleted_at.is_(None))
+        .order_by(CVTemplate.created_at.desc())
+        .limit(1)
+    )
+    return await db.scalar(stmt)
+
+
 async def soft_delete(db: AsyncSession, template_id: UUID) -> CVTemplate | None:
     template = await db.scalar(
         select(CVTemplate).where(
