@@ -60,6 +60,18 @@ def authenticate_with_google(code: str) -> User:
 
     refresh = RefreshToken.for_user(user)
 
+    roles = ["user"]
+
+    if user.is_staff:
+        roles.append("staff")
+
+    if user.is_superuser:
+        roles.append("admin")
+
+    refresh["roles"] = roles
+
+    user.roles = roles
+
     return {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
