@@ -20,6 +20,9 @@ def process_cv_task(self, cv_id: str, s3_key: str, user_id: str):
 async def _process_cv_async(cv_id: str, s3_key: str, user_id: str):
     async with CelerySessionLocal() as session:
         try:
+            version_record = await session.get(MasterCVVersion, cv_id)
+            version_record.status = CVStatus.PROCESSING
+            await session.commit()
             await publish_event(
                 event_type="cv.processing",
                 user_id=user_id,
