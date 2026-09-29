@@ -38,7 +38,7 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `user-service-v1-password-reset` | `/api/v1/auth/password/reset/` | rate-limit 10/hour |
 | `user-service-v1-google` | `/api/v1/auth/google/` | rate-limit 10/min |
 | `user-service-v1-users-public` | `/api/v1/users/`, `/api/v1/notify/push/` (POST only) | — |
-| `user-service-admin` | `/api/admin/` | — |
+| `user-service-admin` | `/api/admin/` | jwt + header_injector + role-auth (admin, staff) + rate-limit 30/min |
 | `user-service-static` | `/static/` | — |
 | `user-service-v1-protected` | `/api/v1/auth`, `/api/v1/user`, `/api/v1/profile` | jwt + header_injector |
 | `admin-routes` | `/api/v1/users/admin` | jwt + header_injector + role-auth (admin, staff) |
@@ -79,7 +79,7 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `POST /api/v1/users/` | registration |
 | `POST /api/v1/notify/push/` | internal dispatch (service-side secret check) |
 | `POST /api/v1/notifications/realtime/cv-status` | realtime status ingest |
-| `/api/admin/`, `/static/` | Django admin/static (no gateway plugins) |
+| `/static/` | Django static (no gateway plugins) |
 | `/health` | health check |
 
 ## Protected endpoints (JWT required)
@@ -108,6 +108,7 @@ still let through.
 | `/api/v1/users/admin`, `/api/v1/users`, `/api/v1/auth/admin/` | + role-auth (admin, staff) |
 | `/api/ai/v1` | jwt + header_injector + role-auth (pass-through) |
 | `/api/ai/v1/admin`, `/api/ai/v1/jobs/fetch`, `/api/ai/v1/companies/admin` | + role-auth (admin, staff) |
+| `/api/admin/` | + role-auth (admin, staff) + rate-limit (Django admin still runs its own login) |
 
 ---
 
