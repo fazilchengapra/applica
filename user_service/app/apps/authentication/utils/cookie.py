@@ -34,4 +34,4 @@ def set_auth_cookies(response, *, access_token: str, refresh_token: str):
 
 def clear_auth_cookies(response):
     response.delete_cookie(settings.ACCESS_TOKEN_COOKIE, path="/")
-    response.delete_cookie(settings.REFRESH_TOKEN_COOKIE, path="/api/v1/auth/")
+    response.delete_cookie(settings.REFRESH_TOKEN_COOKIE, path="/")
