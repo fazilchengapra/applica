@@ -2,6 +2,7 @@ from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
+
 class CVUploadResponse(BaseModel):
     details: str
     filename: str
@@ -57,11 +58,13 @@ class StructuredCV(BaseModel):
     certifications: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
 
+
 class CVStatsResponse(BaseModel):
     total: int
     ready: int
     processing: int
     failed: int
+
 
 class GetCVSResponse(BaseModel):
     id: UUID

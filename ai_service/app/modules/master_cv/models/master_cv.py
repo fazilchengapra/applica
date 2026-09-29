@@ -64,7 +64,7 @@ class MasterCVVersion(Base):
     )
     target_role: Mapped[str | None] = mapped_column(
         String(255),
-        nullable=True,
+        nullable=False,
     )
     embedding = Column(Vector(1024), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
