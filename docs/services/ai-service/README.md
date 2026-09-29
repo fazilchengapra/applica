@@ -35,6 +35,36 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
+| `dashboard.py` | `/dashboard` | `X-User-Id` | Single aggregate: CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed |
+
+### Dashboard endpoint
+
+`GET /api/ai/v1/dashboard` returns every section of the dashboard in one round
+trip set. It is always `200`: an account with no CV, matches or tailored CVs
+gets a fully-shaped response of zeros and empty lists, so the client never
+null-checks a section or handles a 404.
+
+| Section | Notes |
+|---|---|
+| `master_cv.state` | `none` when the user has no master CV, else the current version's status with `completed` renamed to `ready` (`ready` is a presentation alias; no such value is stored) |
+| `master_cv.current` / `versions` | `is_current` version in full, plus the 5 most recent versions by version number |
+| `master_cv.stats` | Delegates to the existing `get_cv_status_counts`, so it agrees with `GET /master-cv/stats` |
+| `master_cv.profile` | Summary and section counts from the current version's `parsed_data`; `skills` come from the `cv_skills` join. Zeroed until the version is `ready` |
+| `matches.counts` | Per-status buckets plus an unfiltered total, from one `GROUP BY` |
+| `matches.top` | 10 highest `final_score` matches at or above `min_score` (0.5) |
+| `tailored_cvs.counts` | `approved`/`failed` partition content status (`approved + failed == total`); `rendering`/`rendered` partition render status, so the two axes overlap and do not sum to `total` |
+| `activity` | Newest-first merge of tailoring runs, PDF renders and master-CV versions, up to 20 |
+
+Activity items are timestamped by `updated_at`, not `created_at`, so a long
+running job does not masquerade as recent work. Render events reuse their
+tailoring run's `updated_at` because `tailored_cvs` has no `updated_at` column.
+
+`matches.top` currently inherits a scoring-scale inconsistency: `job_matches.final_score`
+is documented as 0–1 (`MatchEvaluation.relevance_score`) and validated as such by
+`GET /job-matches?min_score`, but the LLM writes values on a 0–100 scale, so the
+0.5 dashboard threshold does not exclude anything and scores render as e.g.
+`75.0`. Fixing this properly means constraining the evaluation prompt and
+backfilling the column, which is tracked separately.
 
 ### Master CV read endpoints
 
