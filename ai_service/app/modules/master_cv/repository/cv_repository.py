@@ -15,6 +15,9 @@ async def get_cv_status_counts(user_id: str, session: AsyncSession) -> dict:
         func.count(
             case((MasterCVVersion.status == CVStatus.PROCESSING.value, 1))
         ).label("processing"),
+        func.count(case((MasterCVVersion.status == CVStatus.PENDING.value, 1))).label(
+            "pending"
+        ),
         func.count(case((MasterCVVersion.status == CVStatus.FAILED.value, 1))).label(
             "failed"
         ),
@@ -26,6 +29,7 @@ async def get_cv_status_counts(user_id: str, session: AsyncSession) -> dict:
     return {
         "total": row.total,
         "ready": row.ready,
+        "pending": row.pending,
         "processing": row.processing,
         "failed": row.failed,
     }

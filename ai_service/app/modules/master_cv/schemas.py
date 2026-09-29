@@ -62,6 +62,7 @@ class StructuredCV(BaseModel):
 class CVStatsResponse(BaseModel):
     total: int
     ready: int
+    pending: int
     processing: int
     failed: int
 
