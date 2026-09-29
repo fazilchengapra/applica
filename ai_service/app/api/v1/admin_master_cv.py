@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
+from app.dependencies.admin import require_admin
 from app.modules.master_cv.models import MasterCV
 
 
@@ -48,6 +49,7 @@ router = APIRouter(prefix="/admin/users", tags=["Admin Master CV"])
 async def get_user_master_cv_for_admin(
     user_id: int,
     db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
 ):
     master_cv = await db.scalar(
         select(MasterCV)
