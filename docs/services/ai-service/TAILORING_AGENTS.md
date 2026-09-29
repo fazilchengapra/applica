@@ -4,7 +4,7 @@ The tailoring pipeline is a four-stage LangGraph/Celery pipeline that produces a
 `StructuredCVDraft` + `TailoredCV` from a user's master CV and a matched job.
 This document describes the workflow architecture of each agent, as implemented.
 
-Entry: `POST /api/ai/v1/tailored-cvs/` (trigger) and `POST /api/ai/v1/tailored-cvs/{id}/render`.
+Entry: `GET/POST /api/ai/v1/tailored-cvs` (list / trigger) and `POST /api/ai/v1/tailored-cvs/{id}/render`.
 
 ## Pipeline composition
 
@@ -106,8 +106,14 @@ Registered in [`agents/evidence_matcher/tools.py`](../../../ai_service/app/modul
    - Not claimable and stage already advanced → **resume downstream** by queueing `strategize_task` directly.
 3. **Invoke agent** — seed state with `SYSTEM_PROMPT` + human message carrying exact `user_id`/`job_id`.
 4. **Persist** — `save_evidence_matrix` (matrix + one `EvidenceItem` row per item; this assigns the `evidence_item_id` used downstream), then `advance_stage`.
-5. **Handoff** — `strategize_task.delay(user_id, job_id, str(cv_version_id), None)`.
+5. **Handoff** — `strategize_task.delay(user_id, job_id, str(cv_version_id), None, template_id)`.
 6. **Failure** — `release_stage_for_retry` while retries remain; `fail_run` at `max_retries`.
+
+`template_id` is an optional trailing Celery arg threaded `evidence_match → strategy → write`.
+It is not stored on the run: the run's only durable key is `(user_id, job_id, cv_version_id)`, so
+a redispatch of the same trigger must not fork a second run. The writer is the single place it
+lands (on the draft); every stage in between passes it through untouched, and the critic's
+re-dispatch of `write_task` omits it so an explicit choice is never reset (see §3).
 
 ---
 
@@ -161,7 +167,7 @@ matrix; `not_met` items must be omitted or reframed via a genuinely transferable
 2. **Read inputs** — `get_job_requirement_detail.ainvoke` + `get_cv_metadata.ainvoke`; raise on `found=false`.
 3. **Invoke** — `run_strategist(matrix, requirements, metadata)`.
 4. **Persist** — `save_strategy_brief`, then `advance_stage`.
-5. **Handoff** — `write_task.delay(user_id, job_id, cv_version_id, None, None)` (writer consumes DB snapshots, incl. persisted evidence-item IDs).
+5. **Handoff** — `write_task.delay(user_id, job_id, cv_version_id, None, None, None, template_id)` (writer consumes DB snapshots, incl. persisted evidence-item IDs).
 6. **Failure** — same `release_stage_for_retry` / `fail_run` pattern.
 
 ---
@@ -204,7 +210,7 @@ flowchart TB
 1. **Prepare/claim** — `try_claim_stage(run, critic)`; loads the full draft row (needs `cv_template_id`) + strategy brief.
 2. **Critique** — `run_critic` → `persist_critic_verdict` (increments `critic_retry_count`, stores verdict on the run — every pass stays inspectable).
 3. **Approved** — `upsert_tailored_cv(status=approved)`; if a template is attached, set `render_status=processing` and queue `render_tailored_cv_task`; else stays `pending` until the user triggers render with a template. Run → `completed`.
-4. **Rejected, retries remain** (`critic_passes - 1 < MAX_WRITER_RETRIES`) — `queue_writer_retry` (stage back to `write`, status `pending`) and re-queue `write_task` with the verdict + prior draft so the writer can regenerate.
+4. **Rejected, retries remain** (`critic_passes - 1 < MAX_WRITER_RETRIES`) — `queue_writer_retry` (stage back to `write`, status `pending`) and re-queue `write_task` with the verdict + prior draft so the writer can regenerate. `template_id` is deliberately **not** re-sent: the writer treats an absent template as "keep the draft's current one", so a template chosen at trigger time survives every critic retry.
 5. **Rejected, exhausted** — `upsert_tailored_cv(status=failed)` + `fail_run` with verdict reasoning/issues.
 6. **Failure** — `release_stage_for_retry` / `fail_run` (no draft/verdict to persist).
 

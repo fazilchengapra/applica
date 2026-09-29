@@ -73,6 +73,7 @@ def strategize_task(
     job_id: str,
     cv_version_id: str,
     evidence_matrix: dict[str, Any] | None,
+    template_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Turn a completed evidence matrix into a persisted CV strategy brief."""
     run_id, current_stage, claimed, matrix = asyncio.run(
@@ -107,7 +108,7 @@ def strategize_task(
         asyncio.run(_persist_success(run_id, strategy_brief))
         # The writer consumes the database snapshots, which include persisted
         # evidence-item IDs needed by its citation audit.
-        write_task.delay(user_id, job_id, cv_version_id, None, None)
+        write_task.delay(user_id, job_id, cv_version_id, None, None, None, template_id)
         logger.info("Generated strategy brief for run_id=%s", run_id)
         return strategy_brief
     except Exception as exc:

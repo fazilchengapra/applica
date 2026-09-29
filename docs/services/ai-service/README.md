@@ -34,7 +34,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `cv_template_public.py` | `/cv-templates` | — | Public active template list/get |
 | `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
-| `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | Get tailored CV (ownership-enforced), trigger render |
+| `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
 
 ### Master CV read endpoints
 

@@ -95,8 +95,15 @@ async def _release_for_retry(run_id: UUID, error_message: str) -> None:
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
-def evidence_match_task(self, user_id: int, job_id: str) -> dict:
-    """Build grounded CV evidence for one job, skipping if already done."""
+def evidence_match_task(
+    self, user_id: int, job_id: str, template_id: str | None = None
+) -> dict:
+    """Build grounded CV evidence for one job, skipping if already done.
+
+    ``template_id`` is the caller's optional template choice. It is carried down
+    the chain rather than stored here, so it only takes effect once the writer
+    persists it on the draft.
+    """
     matched = asyncio.run(_check_match_exists(user_id, UUID(job_id)))
     if not matched:
         logger.info(
@@ -118,7 +125,9 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
                 run_id,
                 current_stage,
             )
-            strategize_task.delay(user_id, job_id, str(cv_version_id), None)
+            strategize_task.delay(
+                user_id, job_id, str(cv_version_id), None, template_id
+            )
         else:
             logger.info(
                 "Evidence match run_id=%s not claimable (already processing/completed).",
@@ -135,7 +144,7 @@ def evidence_match_task(self, user_id: int, job_id: str) -> dict:
         asyncio.run(_persist_success(run_id, evidence_matrix))
         # Downstream stages reconstruct their inputs from storage.  The in-memory
         # response has no database-assigned evidence_item_id values yet.
-        strategize_task.delay(user_id, job_id, str(cv_version_id), None)
+        strategize_task.delay(user_id, job_id, str(cv_version_id), None, template_id)
         logger.info(
             "Generated evidence matrix and queued strategy for user_id=%s job_id=%s",
             user_id,
