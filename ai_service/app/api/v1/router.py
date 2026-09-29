@@ -6,6 +6,7 @@ from . import (
     cv_template,
     cv_template_public,
     dashboard,
+    home,
     jobs,
     master_cv,
     matching_jobs,
@@ -24,3 +25,4 @@ router.include_router(admin_master_cv.router)
 router.include_router(admin_jobs.router)
 router.include_router(tailoring_cv.router)
 router.include_router(dashboard.router)
+router.include_router(home.router)

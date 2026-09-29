@@ -88,7 +88,7 @@ function RoleAuthHandler:access(conf)
 
 
     -- Get roles from JWT, defaulting to a plain user
-    local user_roles = x.roles
+    local user_roles = claims.roles
 
     if type(user_roles) ~= "table" or #user_roles == 0 then
 

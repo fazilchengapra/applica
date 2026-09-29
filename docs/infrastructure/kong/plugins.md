@@ -259,6 +259,42 @@ and the backend never receives `X-Admin-Authorized`.
 
 ---
 
+# Internal Secret Auth Plugin
+
+## Purpose
+
+`internal-secret-auth` guards routes that are only meant to be called by another
+backend service, not by an end user. The caller presents a shared secret in the
+`X-Internal-Secret` header and Kong compares it to the configured
+`gateway_secret`; a missing or mismatched value gets an HTTP `401` before the
+request reaches the service. No JWT is involved, so these routes stay off the
+public authentication path.
+
+On success the plugin stamps `X-Internal-Service` with the configured caller
+name. Backends can re-verify the same secret (user_service's
+`InternalSecretPermission` does, as defence in depth) rather than trusting the
+stamp alone.
+
+`gateway_secret` is the platform-wide `GATEWAY_INTERNAL_SECRET`; it must be kept
+in sync between `kong/.env` and every calling/consuming service.
+
+## Configuration
+
+```yaml
+plugins:
+  - name: internal-secret-auth
+    config:
+      gateway_secret: <GATEWAY_INTERNAL_SECRET>
+      internal_service: home-bff
+```
+
+| Option | Description |
+|--------|-------------|
+| `gateway_secret` | Shared secret a caller must present in `X-Internal-Secret` |
+| `internal_service` | Value written to the forwarded `X-Internal-Service` header, naming the caller. Defaults to `notification-dispatcher` |
+
+---
+
 # Future Plugins
 
 As the platform grows, additional plugins may be introduced, including:

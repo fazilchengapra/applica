@@ -5,6 +5,7 @@ from .verify_google_token_service import verify_google_id_token
 
 from app.apps.authentication.models import AuthMethod
 from app.apps.users.models import User
+from app.apps.users.services.roles_service import get_user_roles
 from app.apps.profiles.models import Profile
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -60,13 +61,7 @@ def authenticate_with_google(code: str) -> User:
 
     refresh = RefreshToken.for_user(user)
 
-    roles = ["user"]
-
-    if user.is_staff:
-        roles.append("staff")
-
-    if user.is_superuser:
-        roles.append("admin")
+    roles = get_user_roles(user)
 
     refresh["roles"] = roles
 

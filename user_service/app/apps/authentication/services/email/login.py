@@ -8,6 +8,7 @@ from ...exceptions.email import EmailInActiveError
 
 from app.apps.authentication.models import AuthMethod
 from app.apps.authentication.constants import verification_type
+from app.apps.users.services.roles_service import get_user_roles
 
 
 def login_user(*, email: str, password: str, request=None) -> dict:
@@ -34,13 +35,7 @@ def login_user(*, email: str, password: str, request=None) -> dict:
 
     refresh = RefreshToken.for_user(user)
 
-    roles = ["user"]
-
-    if user.is_staff:
-        roles.append("staff")
-
-    if user.is_superuser:
-        roles.append("admin")
+    roles = get_user_roles(user)
 
     refresh["roles"] = roles
 

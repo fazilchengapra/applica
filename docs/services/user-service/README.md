@@ -30,6 +30,7 @@ profiles, in-app notifications, and Celery task monitoring.
 
 - [Setup](./setup.md) — run it locally / via docker
 - [Database](./database/schema.md) — models and relationships
+- [Internal API](./api/internal.md) — secret-guarded service-to-service endpoints
 - [Deployment](./deployment.md) — how the service is run & configured
 - [Troubleshooting](./troubleshooting.md) — common issues and fixes
 

@@ -36,6 +36,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
 | `dashboard.py` | `/dashboard` | `X-User-Id` | Single aggregate: CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed |
+| `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts + unread notifications (from user_service) composed with the CV onboarding step (local) |
 
 ### Dashboard endpoint
 
@@ -65,6 +66,28 @@ is documented as 0–1 (`MatchEvaluation.relevance_score`) and validated as such
 0.5 dashboard threshold does not exclude anything and scores render as e.g.
 `75.0`. Fixing this properly means constraining the evaluation prompt and
 backfilling the column, which is tracked separately.
+
+### Home endpoint
+
+`GET /api/ai/v1/home` is a BFF aggregate: one call the client can make to render
+the home screen. It composes two sources:
+
+- **user_service** (`GET /internal/v1/users/home/{user_id}/`, fetched through
+  Kong with `X-Internal-Secret`) supplies `user` (including `roles` and
+  `last_login`), `profile`, `linked_accounts`, `notifications.unread` and four
+  of the five onboarding steps. That endpoint lives behind the gateway's
+  `internal-secret-auth` plugin and re-verifies the shared secret itself.
+- **ai_service** (same database) supplies `upload_cv`, because the master CV is
+  not visible to user_service.
+
+`onboarding.percent` is `round(completed / 5 * 100)`, computed here so the ring
+and the step list can never disagree. Steps render in a fixed order with labels:
+`verify_email`, `verify_phone`, `add_photo`, `complete_profile`, `upload_cv`.
+
+Unlike `/dashboard`, this endpoint does **not** degrade to a zeroed payload when
+an upstream is down: the account sections are the point of the endpoint, so a
+user_service failure is surfaced as `504` (unreachable/timeout) or `502` (any
+other upstream error) rather than a silently empty home page.
 
 ### Master CV read endpoints
 

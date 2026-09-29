@@ -22,12 +22,13 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 
 ---
 
-# Routes (24 total)
+# Routes (25 total)
 
-## user-service (17 routes) — `kong/services/user-service.yml`
+## user-service (18 routes) — `kong/services/user-service.yml`
 
 | Route | Paths | Plugins |
 |---|---|---|
+| `user-service-internal` | `/internal/v1/users` | internal-secret-auth (`internal_service: home-bff`) |
 | `user-service-v1-session` | `/api/v1/auth/token/refresh/`, `/api/v1/auth/logout/` | rate-limit 60/min |
 | `user-service-v1-email-verify` | `/api/v1/auth/email/verify/` | rate-limit 10/hour |
 | `user-service-v1-email-verify-req` | `/api/v1/auth/email/verify/request/` | rate-limit 5/hour |

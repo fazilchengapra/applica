@@ -21,16 +21,32 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   **Design only — not yet implemented**: self-hosted LiveKit SFU + free local
   speech stack (faster-whisper, Kokoro-82M), `ai_service.interviews` module,
   `interview-agent` worker, realtime `interview.*` events.
+- `ai_service` home aggregate: `GET /api/ai/v1/home` BFF combining the
+  `user_service` account payload (user, profile, roles, linked accounts, unread
+  notifications) with the locally-computed `upload_cv` onboarding step.
+- `user_service` internal account endpoint `GET /internal/v1/users/home/{user_id}/`,
+  guarded by the shared secret and exposed through a new `user-service-internal`
+  Kong route.
+- `ai_service` dashboard aggregate (`GET /api/ai/v1/dashboard`).
+- Shared `get_user_roles` helper (`user_service`), replacing the role list that
+  was duplicated in email login and Google OAuth.
 
 ### Changed
 
 - `notification_service` delivery path corrected to direct HTTP dispatch →
   BullMQ (the docs previously described an unimplemented SNS/SQS/Lambda flow).
+- The internal secret is now consistently named `GATEWAY_INTERNAL_SECRET` across
+  Kong, `ai_service` and `user_service`.
 
 ### Fixed
 
 - Documentation drift: root README and service readmes now match the real
   docker-compose/Kong architecture instead of the planned AWS/EKS stack.
+- Kong `role-auth` read roles from a non-existent `x.roles` claim instead of the
+  JWT's `roles` claim, so every role-gated route returned `500` and admin access
+  was unusable.
+- Kong `internal-secret-auth` hardcoded `notification-dispatcher` as the
+  forwarded `X-Internal-Service` value; the caller name is now configurable.
 
 ## [Earlier revisions]
 

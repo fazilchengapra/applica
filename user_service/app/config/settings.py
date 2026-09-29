@@ -17,7 +17,23 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ["d198-103-42-196-80.ngrok-free.app", "127.0.0.1", "localhost"]
+# In addition to the public hostnames, allow the in-network service names:
+# Kong proxies service-to-service calls with preserve_host, so the Host header
+# on those requests is the gateway's name, not a public hostname.
+ALLOWED_HOSTS = [
+    "d198-103-42-196-80.ngrok-free.app",
+    "127.0.0.1",
+    "localhost",
+    "kong",
+    "user-service",
+    "ai-service",
+    "notification_service",
+]
+
+# Shared service-to-service secret. Kong verifies it with the
+# internal-secret-auth plugin and InternalSecretPermission re-verifies it here.
+# Must match kong/.env and ai_service/.env.
+GATEWAY_INTERNAL_SECRET = os.getenv("GATEWAY_INTERNAL_SECRET")
 
 
 # Application definition

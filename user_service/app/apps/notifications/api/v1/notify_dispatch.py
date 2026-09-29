@@ -1,22 +1,14 @@
 import logging
-import os
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
-from django.conf import settings
+from rest_framework import status
 from django.contrib.auth import get_user_model
+from app.apps.common.permissions import InternalSecretPermission
 from app.apps.notifications.services import create_and_push
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-
-class InternalSecretPermission(permissions.BasePermission):
-    def has_permission(self, request, view):
-        print(view)
-        return request.headers.get("X-Internal-Secret") == os.getenv(
-            "INTERNAL_SHARED_SECRET"
-        )
 
 
 class NotificationDispatchView(APIView):

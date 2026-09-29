@@ -49,6 +49,10 @@ class Settings(BaseSettings):
 
     SNS_NOTIFICATIONS_TOPIC_ARN: str
     NOTIFICATION_SERVICE_URL: str = "http://kong:8000"
+    USER_SERVICE_URL: str = "http://kong:8000"
+
+    # timeouts for service-to-service calls made by the BFF
+    USER_SERVICE_TIMEOUT: float = 5.0
 
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str | None = None

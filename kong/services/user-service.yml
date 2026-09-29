@@ -2,6 +2,22 @@
 - name: user-service
   url: http://user-service:8000
   routes:
+    # service-to-service: the ai_service BFF fetching the account half of the
+    # home aggregate. Gated by the shared secret rather than a browser JWT,
+    # since the caller is another backend, not a session. Kept on its own
+    # /internal prefix so it cannot be shadowed by the admin-gated
+    # /api/v1/users route.
+    - name: user-service-internal
+      paths:
+        - /internal/v1/users
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: internal-secret-auth
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+            internal_service: "home-bff"
+
     - name: user-service-v1-session
       paths:
         - /api/v1/auth/token/refresh/

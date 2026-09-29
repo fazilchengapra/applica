@@ -13,8 +13,13 @@ function InternalSecretAuthHandler:access(conf)
     return kong.response.exit(401, { message = "Invalid internal secret" })
   end
 
-  -- secret matched, safe to pass through
-  kong.service.request.set_header("X-Internal-Service", "notification-dispatcher")
+  -- secret matched, safe to pass through. The caller identity is stamped
+  -- rather than the secret so the backend can trust the request came through
+  -- the gateway without the secret being re-read here.
+  kong.service.request.set_header(
+    "X-Internal-Service",
+    conf.internal_service or "notification-dispatcher"
+  )
 end
 
 return InternalSecretAuthHandler
