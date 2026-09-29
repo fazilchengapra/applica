@@ -26,14 +26,27 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 
 | Router | Prefix | Auth | Purpose |
 |---|---|---|---|
-| `master_cv.py` | `/master-cv` | `X-User-Id` | Upload/update current CV, stats |
-| `jobs.py` | `/jobs` | — | Trigger job fetch per source |
-| `companies.py` | `/companies/admin` | — (TODO admin mw) | Trigger company collect/verify |
+| `master_cv.py` | `/master-cv` | `X-User-Id` | Upload/update current CV, stats, list versions, parsed CV, skills |
+| `jobs.py` | `/jobs` | `X-User-Id` | Trigger job fetch per source |
+| `companies.py` | `/companies/admin` | `X-Admin-Authorized` | Trigger company collect/verify |
 | `matching_jobs.py` | `/job-matches` | `X-User-Id` | List/get/update matches, refresh |
 | `cv_template.py` | `/admin/cv-templates` | `X-Admin-Authorized` | Admin LaTeX template CRUD |
 | `cv_template_public.py` | `/cv-templates` | — | Public active template list/get |
-| `admin_master_cv.py` | `/admin/users` | — (TODO admin mw) | Admin: user master-CV details |
+| `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
+| `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | Get tailored CV (ownership-enforced), trigger render |
+
+### Master CV read endpoints
+
+| Endpoint | Returns | Notes |
+|---|---|---|
+| `GET /master-cv/parsed` | `StructuredCV` | `parsed_data` of the `is_current` version. `404` when the user has no current version, `409` while it is not `completed` |
+| `GET /master-cv/skills` | `[{name, normalized_name, skill_type}]` | `cv_skills ⋈ skills` for the `is_current` version. Same `404`/`409` rules |
+
+Both resolve the current version through `get_current_cv_version`
+([`cv_repository.py`](../../../ai_service/app/modules/master_cv/repository/cv_repository.py))
+and reject anything not yet `completed`, so clients can poll these endpoints
+after an upload instead of guessing from `/master-cv/stats`.
 
 ## Data model (PostgreSQL 16 + pgvector)
 

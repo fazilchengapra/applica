@@ -1,12 +1,20 @@
 from fastapi import Depends
 from pathlib import Path
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 import uuid
 
 from app.modules.master_cv.repository.master_cv_repo import get_master_cv_id_by_user_id
-from app.modules.master_cv.repository.cv_repository import get_all_cv_versions
+from app.modules.master_cv.repository.cv_repository import (
+    get_all_cv_versions,
+    get_current_cv_version,
+    get_skills_for_cv,
+)
+
+# schema
+from app.modules.master_cv.schemas import CVSkillResponse, StructuredCV
 
 # model
 from app.modules.master_cv.models.master_cv import MasterCV, MasterCVVersion, CVStatus
@@ -21,7 +29,11 @@ from ..tasks import process_cv_task
 from app.modules.notifications.publisher import publish_event
 
 # exceptions
-from ..exceptions import CVNotfoundError
+from ..exceptions import (
+    CVNotfoundError,
+    CVNotReadyError,
+    CVInvalidParsedDataError,
+)
 
 
 # main services :-
@@ -135,3 +147,47 @@ async def get_all_cv(user_id: int, session: AsyncSession):
     cvs = await get_all_cv_versions(master_cv_id, session)
 
     return cvs
+
+
+async def _get_ready_current_version(
+    user_id: int, session: AsyncSession
+) -> MasterCVVersion:
+    """The is_current version, which must be processed before it can be served."""
+
+    version_record = await get_current_cv_version(user_id, session)
+
+    if version_record is None:
+        raise CVNotfoundError("CV not found")
+
+    if version_record.status != CVStatus.COMPLETED:
+        status_value = getattr(version_record.status, "value", version_record.status)
+        raise CVNotReadyError(f"CV is not ready yet (status: {status_value})")
+
+    return version_record
+
+
+async def get_parsed_cv(user_id: int, session: AsyncSession) -> StructuredCV:
+    version_record = await _get_ready_current_version(user_id, session)
+
+    if not version_record.parsed_data:
+        raise CVNotReadyError("Parsed CV data is not available yet")
+
+    try:
+        return StructuredCV.model_validate(version_record.parsed_data)
+    except ValidationError as e:
+        raise CVInvalidParsedDataError(f"Stored parsed CV data is invalid: {e}")
+
+
+async def get_cv_skills(user_id: int, session: AsyncSession) -> list[CVSkillResponse]:
+    version_record = await _get_ready_current_version(user_id, session)
+
+    rows = await get_skills_for_cv(version_record.id, session)
+
+    return [
+        CVSkillResponse(
+            name=name,
+            normalized_name=normalized_name,
+            skill_type=skill_type,
+        )
+        for name, normalized_name, skill_type in rows
+    ]

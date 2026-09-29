@@ -2,6 +2,8 @@ from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.modules.jobs.schemas import SkillType
+
 
 class CVUploadResponse(BaseModel):
     details: str
@@ -65,6 +67,11 @@ class CVStatsResponse(BaseModel):
     pending: int
     processing: int
     failed: int
+
+
+class CVSkillResponse(BaseModel):
+    name: str
+    normalized_name: str
 
 
 class GetCVSResponse(BaseModel):

@@ -16,5 +16,11 @@ class CVStructuringError(Exception):
 class CVNotfoundError(Exception):
     pass
 
+class CVNotReadyError(Exception):
+    pass
+
+class CVInvalidParsedDataError(Exception):
+    pass
+
 class MultipleMasterCVError(Exception):
     pass

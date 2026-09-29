@@ -9,6 +9,8 @@ from app.modules.master_cv.services.cv_service import (
     process_cv_upload,
     process_cv_update,
     get_all_cv,
+    get_parsed_cv,
+    get_cv_skills,
 )
 from app.modules.master_cv.services.master_cv_service import if_master_cv_exist
 from app.modules.master_cv.services.cv_stats_service import get_cv_stats
@@ -18,7 +20,9 @@ from app.modules.master_cv.services.s3_service import delete_pdf_from_s3
 from ...modules.master_cv.schemas import (
     CVUploadResponse,
     CVStatsResponse,
+    CVSkillResponse,
     GetCVSResponse,
+    StructuredCV,
 )
 
 # exceptions
@@ -28,6 +32,8 @@ from ...modules.master_cv.exceptions import (
     FileTooLargeError,
     S3ObjectNotFoundError,
     CVNotfoundError,
+    CVNotReadyError,
+    CVInvalidParsedDataError,
     MultipleMasterCVError,
 )
 
@@ -101,11 +107,57 @@ async def get_master_cv_stats(
 
 
 @router.get("/", response_model=list[GetCVSResponse], status_code=status.HTTP_200_OK)
-async def get_master_cv_stats(
+async def get_master_cv_versions(
     current_user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
     return await get_all_cv(current_user_id, session)
+
+
+@router.get(
+    "/parsed",
+    response_model=StructuredCV,
+    status_code=status.HTTP_200_OK,
+    responses={
+        404: {"description": "No current CV version"},
+        409: {"description": "Current CV version is not completed yet"},
+    },
+)
+async def get_parsed_master_cv(
+    current_user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        return await get_parsed_cv(current_user_id, session)
+    except CVNotfoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except CVNotReadyError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except CVInvalidParsedDataError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/skills",
+    response_model=list[CVSkillResponse],
+    status_code=status.HTTP_200_OK,
+    responses={
+        404: {"description": "No current CV version"},
+        409: {"description": "Current CV version is not completed yet"},
+    },
+)
+async def get_master_cv_skills(
+    current_user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        return await get_cv_skills(current_user_id, session)
+    except CVNotfoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except CVNotReadyError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 # @router.delete("/{object_key:path}", status_code=status.HTTP_204_NO_CONTENT)
