@@ -191,6 +191,74 @@ HTTP/1.1 429 Too Many Requests
 
 ---
 
+# Role Auth Plugin
+
+## Purpose
+
+`role-auth` decides whether a caller may use the admin routes of a service, and
+marks approved requests with `X-Admin-Authorized` so backends (for example
+`require_admin` in `ai_service`) can trust the gateway rather than re-checking
+roles.
+
+Two rules govern its behaviour:
+
+1. It **always strips** a client-supplied `X-Admin-Authorized` header. Only the
+   plugin itself sets that header, after a successful role check — a client can
+   never spoof admin access by sending the header directly.
+2. `allowed_roles` is **optional**. When it is omitted or empty the route runs in
+   pass-through mode: any authenticated caller is allowed (a token without a
+   `roles` claim is treated as the default `user` role) and no admin header is
+   injected. Use this when a route is shared between admins and ordinary users.
+
+Without a valid JWT (`401` precedes the role check) or without a matching role
+(`403`) the request never reaches the backend.
+
+## Configuration
+
+Admin route:
+
+```yaml
+plugins:
+  - name: role-auth
+    config:
+      allowed_roles:
+        - admin
+        - staff
+```
+
+Shared route (every authenticated user allowed, spoofed admin header removed):
+
+```yaml
+plugins:
+  - name: role-auth
+    config:
+      allowed_roles: []
+```
+
+| Option | Description |
+|--------|-------------|
+| `allowed_roles` | Roles permitted on the route, read from the JWT `roles` claim. Empty means pass-through |
+
+## Example
+
+```http
+GET /api/ai/v1/admin/users/15/master-cv HTTP/1.1
+Cookie: access_token=<jwt with roles ["user","staff","admin"]>
+```
+
+Headers forwarded to `ai-service` (example):
+
+```http
+X-User-Id: 15
+X-Gateway-Secret: ***
+X-Admin-Authorized: true
+```
+
+A caller whose token only carries `roles: ["user"]` gets an HTTP `403` from Kong,
+and the backend never receives `X-Admin-Authorized`.
+
+---
+
 # Future Plugins
 
 As the platform grows, additional plugins may be introduced, including:
@@ -210,4 +278,5 @@ Plugins allow Kong to centralize common API functionality outside of backend ser
 | Plugin | Purpose |
 |--------|---------|
 | JWT Authentication | Authenticate users using JWT stored in HTTP-only cookies |
+| Role Auth | Enforce roles on admin routes and inject `X-Admin-Authorized` |
 | Rate Limiting | Protect APIs by limiting requests per client IP |

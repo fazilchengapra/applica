@@ -20,6 +20,13 @@
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
 
+        # No allowed_roles: this route also serves ordinary users, so every
+        # authenticated caller passes through. Attached so a client cannot
+        # spoof X-Admin-Authorized — only the admin routes below may set it.
+        - name: role-auth
+          config:
+            allowed_roles: []
+
     # admin-only: trigger external job fetches (paid API/LLM work)
     - name: ai-jobs-fetch-admin
       paths:

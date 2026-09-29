@@ -22,7 +22,7 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 
 ---
 
-# Routes (21 total)
+# Routes (24 total)
 
 ## user-service (17 routes) — `kong/services/user-service.yml`
 
@@ -46,11 +46,14 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `admin-route-user` | `/api/v1/users` | jwt + header_injector + role-auth |
 | `admin-route-auth-details` | `/api/v1/auth/admin/` | jwt + header_injector + role-auth |
 
-## ai-service (1 route) — `kong/services/ai-service.yml`
+## ai-service (4 routes) — `kong/services/ai-service.yml`
 
 | Route | Paths | Plugins |
 |---|---|---|
-| `ai-service-v1-protected` | `/api/ai/v1` | jwt + header_injector |
+| `ai-service-v1-protected` | `/api/ai/v1` | jwt + header_injector + role-auth (pass-through) |
+| `ai-jobs-fetch-admin` | `/api/ai/v1/jobs/fetch` | jwt + header_injector + role-auth (admin, staff) + rate-limit |
+| `ai-companies-admin` | `/api/ai/v1/companies/admin` | jwt + header_injector + role-auth (admin, staff) + rate-limit |
+| `ai-master-admin` | `/api/ai/v1/admin` | jwt + header_injector + role-auth (admin, staff) + rate-limit |
 
 ## notification-service (3 routes) — `kong/services/notification-service.yml`
 
@@ -93,12 +96,18 @@ On success Kong injects `X-User-Id`, `X-Gateway-Secret` (and on admin routes
 returns `401` without reaching the backend — see
 [authentication](./authentication.md) and [headers](./headers.md).
 
+`role-auth` always strips a client-supplied `X-Admin-Authorized` header. It is
+only re-set on routes that list `allowed_roles` (admin routes) — so attaching it
+to a shared route cannot be used to spoof admin access, while ordinary users are
+still let through.
+
 | Endpoint | Notes |
 |---|---|
 | `/api/v1/auth/*`, `/api/v1/user/*`, `/api/v1/profile*` | jwt + header_injector |
 | `/api/v1/users/me` | jwt + header_injector |
 | `/api/v1/users/admin`, `/api/v1/users`, `/api/v1/auth/admin/` | + role-auth (admin, staff) |
-| `/api/ai/v1` | jwt + header_injector |
+| `/api/ai/v1` | jwt + header_injector + role-auth (pass-through) |
+| `/api/ai/v1/admin`, `/api/ai/v1/jobs/fetch`, `/api/ai/v1/companies/admin` | + role-auth (admin, staff) |
 
 ---
 

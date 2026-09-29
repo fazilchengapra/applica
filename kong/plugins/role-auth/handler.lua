@@ -1,7 +1,17 @@
+local cjson = require "cjson.safe"
+
 local RoleAuthHandler = {
     PRIORITY = 900,
-    VERSION = "1.0.0",
+    VERSION = "1.1.0",
 }
+
+
+-- Only this plugin may grant admin access to downstream services.
+local ADMIN_HEADER = "X-Admin-Authorized"
+
+-- Role assumed when the JWT carries no roles claim, so plain authenticated
+-- callers are never mistaken for admins.
+local DEFAULT_ROLE = "user"
 
 
 -- Check if a role exists in a table
@@ -20,7 +30,6 @@ end
 
 -- Check whether the user has at least one allowed role
 local function has_allowed_role(user_roles, allowed_roles)
-    kong.log.notice("user roles: ", require('cjson').encode(user_roles))
     for _, allowed_role in ipairs(allowed_roles) do
 
         if has_role(user_roles, allowed_role) then
@@ -33,6 +42,14 @@ local function has_allowed_role(user_roles, allowed_roles)
 end
 
 
+-- Pass-through mode when no roles are configured for the route
+local function is_open_to_all_users(conf)
+    local allowed_roles = conf.allowed_roles
+
+    return type(allowed_roles) ~= "table" or #allowed_roles == 0
+end
+
+
 function RoleAuthHandler:access(conf)
 
     -- Get JWT claims
@@ -40,7 +57,7 @@ function RoleAuthHandler:access(conf)
 
     kong.log.notice(
         "JWT CLAIMS: ",
-        require("cjson").encode(claims or {})
+        cjson.encode(claims or {})
     )
 
     -- JWT claims not available
@@ -56,12 +73,35 @@ function RoleAuthHandler:access(conf)
     end
 
 
-    -- Get roles from JWT
-    local user_roles = claims.roles or {}
+    -- Drop any client-supplied admin header on every route this plugin is
+    -- attached to. It is only ever set below, after a successful role check.
+    kong.service.request.clear_header(ADMIN_HEADER)
+
+
+    -- No allowed_roles configured: the route serves ordinary users as well.
+    -- Authenticated callers pass through and no admin header is injected.
+    if is_open_to_all_users(conf) then
+
+        return
+
+    end
+
+
+    -- Get roles from JWT, defaulting to a plain user
+    local user_roles = x.roles
+
+    if type(user_roles) ~= "table" or #user_roles == 0 then
+
+        user_roles = { DEFAULT_ROLE }
+
+    end
+
+
+    kong.log.notice("user roles: ", cjson.encode(user_roles))
 
 
     -- Get allowed roles from Kong configuration
-    local allowed_roles = conf.allowed_roles or {}
+    local allowed_roles = conf.allowed_roles
 
 
     -- Check authorization
@@ -77,7 +117,7 @@ function RoleAuthHandler:access(conf)
     end
 
     -- Authorized: mark the request as admin for downstream services
-    kong.service.request.set_header("X-Admin-Authorized", "true")
+    kong.service.request.set_header(ADMIN_HEADER, "true")
 
 end
 
