@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     # timeouts for service-to-service calls made by the BFF
     USER_SERVICE_TIMEOUT: float = 5.0
+    NOTIFICATION_SERVICE_TIMEOUT: float = 5.0
 
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str | None = None

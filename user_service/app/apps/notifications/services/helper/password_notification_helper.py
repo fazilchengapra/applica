@@ -1,6 +1,4 @@
-from app.apps.notifications.services.create_and_push_notification import create_and_push
 from app.apps.notifications.constants.notification_type import NotificationType
-from app.apps.notifications.models import NotificationType
 
 
 def password_change_notification_helper(*, user_id):

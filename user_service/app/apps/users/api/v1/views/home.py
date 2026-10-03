@@ -36,8 +36,9 @@ class InternalHomeView(APIView):
         },
         description=(
             "Internal service-to-service endpoint. Returns the user, profile, "
-            "linked accounts, notification unread count and the four "
-            "account-side onboarding steps for the given user."
+            "linked accounts and the four account-side onboarding steps for the "
+            "given user. The notification unread count is not included; that "
+            "table lives in notification_service."
         ),
         summary="Internal home account aggregate",
     )

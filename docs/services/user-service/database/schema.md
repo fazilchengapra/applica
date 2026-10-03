@@ -17,7 +17,6 @@ see the note on `master_cvs` at the bottom of this doc.
 | `auth_methods` | `authentication` | One row per login method linked to a user (email, phone, Google, ...) |
 | `verification_tokens` | `authentication` | One-time tokens for email/phone verification, password reset, etc. |
 | `profiles` | `profiles` | 1:1 with `users`; all human-facing identity data lives here, not on `users` |
-| `notifications` | `notifications` | Real-time + persisted notification log, pushed via Django Channels |
 | `master_cvs` | *(external — `ai_service`)* | Shown for reference only; not part of this database |
 
 ## Diagram
@@ -122,37 +121,27 @@ touches display/personal data and vice versa.
 
 ---
 
-## `notifications`
+## `notifications` — moved to `notification_service`
 
-Persisted log of every notification sent to a user, pushed in real time over
-Django Channels and also readable via a standard list/mark-read API.
+The `notifications` table **no longer exists here**. It was migrated (rows
+copied with microsecond precision) to `notification_service`'s own Postgres on
+2026-09-29, and the table was dropped by migration `notifications.0003`. The
+Prisma model, the `(user_id, read_at, created_at DESC)` index, and the
+`/api/v1/notify` list/mark-read API are documented in the
+[notification_service README](../../../notification-service/README.md).
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | uuid | PK | UUID rather than bigint — notification IDs are referenced client-side (e.g. mark-as-read by ID) and a UUID avoids leaking volume/sequence info. |
-| `user_id` | bigint | NN, FK → `users.id` | Owning user. bigint matches `users.id`. |
-| `type` | varchar(64) | NN | Dot-prefixed convention, e.g. `account.password_changed`, `auth.new_login`. Namespacing keeps the type space organized as event types grow. |
-| `title` | varchar(255) | NN | |
-| `body` | text | | |
-| `metadata` | json | NN | Structured event payload (e.g. which device, which IP) — kept flexible per-type rather than adding columns per notification kind. |
-| `read_at` | timestamp | | Null = unread. Timestamp itself doubles as "when was it read," so no separate boolean is needed. |
-| `created_at` | timestamp | NN | |
-
-**Index:** composite index on `(user, read_at, created_at)` — matches the
-dominant query pattern (a user's unread notifications, newest first).
-
-**Delivery pattern:** all notification sends go through a single
-`create_and_push` service entrypoint with thin per-event wrappers, and are
-wrapped in `try/except` at the call site so a notification failure never
-turns a successful operation into a 500. PII (email/phone) inside `metadata`
-is masked at this service layer, not at individual call sites.
+This service still *produces* notifications: `create_and_push` POSTs to
+notification_service over HTTP, and PII (email/phone) inside `metadata` is still
+masked here, at this service layer, before the row is written. Failures are
+logged rather than raised, so a notification outage cannot roll back a successful
+auth transaction.
 
 ## Conventions
 
 - **PK strategy:** bigint auto-increment for tables that are purely internal
   and never exposed by ID in a URL (`users`, `auth_methods`, `verification_tokens`,
   `profiles`); UUID for tables whose IDs are referenced externally or client-side
-  (`notifications`).
+  (the in-app `notifications` table, which now lives in notification_service).
 - **Timestamps:** every table has `created_at`; mutable tables also carry
   `updated_at`. Soft-state fields (`revoked_at`, `used_at`, `read_at`,
   `deactivated_at`) are nullable timestamps rather than booleans, so you get

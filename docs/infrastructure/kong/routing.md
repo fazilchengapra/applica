@@ -13,9 +13,9 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 
 | Service | Purpose | Backend URL |
 |---|---|---|
-| `user-service` | Accounts, auth, profiles, notify dispatch | `http://user-service:8000` |
+| `user-service` | Accounts, auth, profiles | `http://user-service:8000` |
 | `ai-service` | CV processing, matching, tailoring | `http://ai-service:8001` |
-| `notification-service` | Email/SMS/realtime dispatch, WS | `http://notification_service:8000` |
+| `notification-service` | In-app inbox, email/SMS dispatch, WS | `http://notification_service:8000` |
 
 > All services run with `strip_path: false` and `preserve_host: true`, so the
 > path prefix is forwarded unchanged and the original host header is kept.
@@ -38,7 +38,7 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `user-service-v1-password-forgot` | `/api/v1/auth/password/forgot/` | rate-limit 5/hour |
 | `user-service-v1-password-reset` | `/api/v1/auth/password/reset/` | rate-limit 10/hour |
 | `user-service-v1-google` | `/api/v1/auth/google/` | rate-limit 10/min |
-| `user-service-v1-users-public` | `/api/v1/users/`, `/api/v1/notify/push/` (POST only) | — |
+| `user-service-v1-users-public` | `/api/v1/users/` (POST only) | — |
 | `user-service-admin` | `/api/admin/` | jwt + header_injector + role-auth (admin, staff) + rate-limit 30/min |
 | `user-service-static` | `/static/` | — |
 | `user-service-v1-protected` | `/api/v1/auth`, `/api/v1/user`, `/api/v1/profile` | jwt + header_injector |
@@ -56,13 +56,20 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `ai-companies-admin` | `/api/ai/v1/companies/admin` | jwt + header_injector + role-auth (admin, staff) + rate-limit |
 | `ai-master-admin` | `/api/ai/v1/admin` | jwt + header_injector + role-auth (admin, staff) + rate-limit |
 
-## notification-service (3 routes) — `kong/services/notification-service.yml`
+## notification-service (4 routes) — `kong/services/notification-service.yml`
 
 | Route | Paths | Plugins |
 |---|---|---|
-| `realtime-cv-status` | `/api/v1/notifications/realtime/cv-status` | — |
-| `notification-dispatch-secure` | `/api/v1/notifications` | internal-secret-auth |
+| `notification-user` | `/api/v1/notify` | jwt + header_injector |
+| `notification-dispatch-secure` | `/api/v1/notifications/internal` | internal-secret-auth |
+| `realtime-cv-status` | `/api/v1/notifications/realtime/cv-status` | internal-secret-auth |
 | `websocket-connection` | `/ws/notifications/` | jwt + header_injector |
+
+> The browser inbox (`/api/v1/notify`) and the service-to-service routes
+> (`/api/v1/notifications/internal`, `/realtime/cv-status`) sit on **disjoint
+> prefixes**, so there is no broad "user" route that a new internal sub-path
+> could accidentally fall through to. `header_injector` reads the `sub` claim
+> and stamps `X-User-Id`, which is what the inbox scopes every query to.
 
 ---
 
@@ -78,8 +85,8 @@ Defined in [`kong/services/*.yml`](../../../kong/services/):
 | `POST /api/v1/auth/password/forgot/` and `/reset/` | rate-limited |
 | `POST /api/v1/auth/email/verify/` and `/request/` | rate-limited |
 | `POST /api/v1/users/` | registration |
-| `POST /api/v1/notify/push/` | internal dispatch (service-side secret check) |
 | `POST /api/v1/notifications/realtime/cv-status` | realtime status ingest |
+| `POST /api/v1/notifications/internal/*` | inbox writes + email/SMS dispatch (service-side secret check) |
 | `/static/` | Django static (no gateway plugins) |
 | `/health` | health check |
 

@@ -1,8 +1,8 @@
-"""Composes the home aggregate from account state and local CV state.
+"""Composes the home aggregate from account state, local CV state and inbox state.
 
-The two sources are fetched concurrently: the user_service call is plain HTTP
-and does not touch the shared AsyncSession, so overlapping it with the local
-query is safe and keeps the endpoint at roughly one round trip instead of two.
+The three sources are fetched concurrently: the upstream calls are plain HTTP
+and do not touch the shared AsyncSession, so overlapping them with the local
+query is safe and keeps the endpoint at roughly one round trip instead of three.
 """
 
 import asyncio
@@ -62,20 +62,21 @@ def _build_onboarding(account_steps: AccountStepFlags, has_cv: bool) -> HomeOnbo
 async def build_home(db: AsyncSession, user_id: int) -> HomeResponse:
     """Full home aggregate for one user.
 
-    Fails loudly if user_service is unavailable rather than rendering a
+    Fails loudly if either upstream is unavailable rather than rendering a
     half-empty home page: the account sections are the point of the endpoint,
     and a silently blank profile is worse for the user than a visible error.
     """
-    account, has_cv = await asyncio.gather(
+    account, has_cv, notifications = await asyncio.gather(
         clients.fetch_account(user_id),
         repository.has_uploaded_cv(db, user_id),
+        clients.fetch_unread_count(user_id),
     )
 
     return HomeResponse(
         user=account.user,
         profile=account.profile,
         onboarding=_build_onboarding(account.account_steps, has_cv),
-        notifications=account.notifications,
+        notifications=notifications,
         linked_accounts=account.linked_accounts,
         generated_at=datetime.now(timezone.utc),
     )

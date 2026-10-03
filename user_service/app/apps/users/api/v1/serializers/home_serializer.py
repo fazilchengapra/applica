@@ -40,10 +40,6 @@ class HomeAccountStepsSerializer(serializers.Serializer):
     complete_profile = serializers.BooleanField()
 
 
-class HomeNotificationsSerializer(serializers.Serializer):
-    unread = serializers.IntegerField()
-
-
 class HomeLinkedAccountSerializer(serializers.Serializer):
     provider = serializers.CharField()
     is_verified = serializers.BooleanField()
@@ -52,10 +48,14 @@ class HomeLinkedAccountSerializer(serializers.Serializer):
 
 
 class HomeAccountSerializer(serializers.Serializer):
-    """Top-level envelope returned to the BFF."""
+    """Top-level envelope returned to the BFF.
+
+    There is no ``notifications`` key: the notifications table belongs to
+    notification_service, and the BFF reads the unread count from there so each
+    service returns the state it actually owns.
+    """
 
     user = HomeUserSerializer()
     profile = HomeProfileSerializer()
     account_steps = HomeAccountStepsSerializer()
-    notifications = HomeNotificationsSerializer()
     linked_accounts = HomeLinkedAccountSerializer(many=True)

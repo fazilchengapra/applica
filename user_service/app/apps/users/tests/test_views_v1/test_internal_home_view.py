@@ -10,8 +10,6 @@ from django.test import Client
 from django.utils import timezone
 
 from app.apps.authentication.models import AuthMethod
-from app.apps.notifications.constants.notification_type import NotificationType
-from app.apps.notifications.models import Notification
 from app.apps.profiles.models import Profile
 from app.apps.users.models import User
 from app.apps.users.tests.factories import UserFactory
@@ -82,7 +80,6 @@ def test_internal_home_returns_full_shape_for_bare_user(internal_client, secret)
         "user",
         "profile",
         "account_steps",
-        "notifications",
         "linked_accounts",
     }
     assert data["profile"] == {
@@ -95,7 +92,6 @@ def test_internal_home_returns_full_shape_for_bare_user(internal_client, secret)
         "locale": "",
     }
     assert data["linked_accounts"] == []
-    assert data["notifications"] == {"unread": 0}
     # Nothing done yet.
     assert data["account_steps"] == {
         "verify_email": False,
@@ -170,34 +166,16 @@ def test_internal_home_lists_linked_accounts_in_provider_order(internal_client, 
     assert all(a["linked_at"] for a in accounts)
 
 
-def test_internal_home_counts_only_unread_notifications(internal_client, secret):
+def test_internal_home_excludes_notifications(internal_client, secret):
+    """The payload must not carry a notifications key at all.
+
+    The unread count moved to notification_service, which owns the table. Leaving
+    the key behind would let the BFF keep reading a stale local count, which is
+    exactly the bug this migration is meant to prevent.
+    """
     user = UserFactory()
-    Notification.objects.create(
-        user=user, type=NotificationType.WELCOME, title="unread one"
-    )
-    Notification.objects.create(
-        user=user,
-        type=NotificationType.WELCOME,
-        title="read one",
-        read_at=timezone.now(),
-    )
 
-    assert _get(internal_client, user.id, secret).json()["notifications"] == {
-        "unread": 1
-    }
-
-
-def test_internal_home_unread_count_is_scoped_to_the_user(internal_client, secret):
-    """A user's count must never include another user's notifications."""
-    user = UserFactory()
-    other = UserFactory()
-    Notification.objects.create(
-        user=other, type=NotificationType.WELCOME, title="theirs"
-    )
-
-    assert _get(internal_client, user.id, secret).json()["notifications"] == {
-        "unread": 0
-    }
+    assert "notifications" not in _get(internal_client, user.id, secret).json()
 
 
 @pytest.mark.parametrize(
@@ -266,9 +244,6 @@ def test_internal_home_query_count_stays_low(
         city="Kochi",
     )
     AuthMethod.objects.create(user=user, provider=AuthMethod.EMAIL)
-    Notification.objects.create(
-        user=user, type=NotificationType.WELCOME, title="hi"
-    )
 
     with django_assert_max_num_queries(3):
         response = _get(internal_client, user.id, secret)

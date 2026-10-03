@@ -174,7 +174,6 @@
     - name: user-service-v1-users-public
       paths:
         - /api/v1/users/
-        - /api/v1/notify/push/
       methods:
         - POST
       strip_path: false

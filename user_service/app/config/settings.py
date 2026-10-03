@@ -35,6 +35,15 @@ ALLOWED_HOSTS = [
 # Must match kong/.env and ai_service/.env.
 GATEWAY_INTERNAL_SECRET = os.getenv("GATEWAY_INTERNAL_SECRET")
 
+# In-app notifications are owned by notification_service (its own database).
+# user_service no longer has a notifications table; these settings are only
+# for creating a row over HTTP. Points at Kong so the internal-secret-auth
+# plugin stamps X-Internal-Service, same as every other service hop.
+NOTIFICATION_SERVICE_URL = os.getenv(
+    "NOTIFICATION_SERVICE_URL", "http://kong:8000"
+)
+NOTIFICATION_SERVICE_TIMEOUT = float(os.getenv("NOTIFICATION_SERVICE_TIMEOUT", "5"))
+
 
 # Application definition
 

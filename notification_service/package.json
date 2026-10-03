@@ -15,10 +15,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
     "start:worker": "ts-node-dev --respawn src/workers/notificationWorker.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "@types/ws": "^8.18.1",
@@ -307,6 +309,7 @@
     "pathe": "^2.0.3",
     "pend": "^1.2.0",
     "perfect-debounce": "^2.1.0",
+    "pg": "^8.23.0",
     "picocolors": "^1.1.1",
     "picomatch": "^2.3.2",
     "pino": "^10.3.1",

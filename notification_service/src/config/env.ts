@@ -7,6 +7,11 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string(),
 
+  GATEWAY_INTERNAL_SECRET: z.string().min(1),
+
+  USER_SERVICE_URL: z.string().url().default('http://kong:8000'),
+  USER_SERVICE_TIMEOUT: z.coerce.number().positive().default(5),
+
   GMAIL_USER: z.string().email(),
   GMAIL_APP_PASSWORD: z.string().min(1),
 

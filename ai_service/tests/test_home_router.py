@@ -66,28 +66,37 @@ def _valid_account() -> AccountPayload:
         ),
         profile=HomeProfile(display_name="Fazil"),
         account_steps=AccountStepFlags(verify_email=True, verify_phone=True),
-        notifications=HomeNotifications(unread=4),
         linked_accounts=[],
     )
 
 
-async def _stub_upstreams(monkeypatch, account=None, error=None):
+async def _stub_upstreams(monkeypatch, account=None, error=None, unread=None):
     async def fetch(user_id):
         if error is not None:
             raise error
         return account
 
+    async def fetch_unread(user_id):
+        if error is not None:
+            raise error
+        return unread
+
     async def has_cv(db, user_id):
         return True
 
     monkeypatch.setattr(clients, "fetch_account", fetch)
+    monkeypatch.setattr(clients, "fetch_unread_count", fetch_unread)
     monkeypatch.setattr(repository, "has_uploaded_cv", has_cv)
 
 
 async def test_home_returns_composed_payload(client, monkeypatch):
     _override_user()
     _override_db()
-    await _stub_upstreams(monkeypatch, account=_valid_account())
+    await _stub_upstreams(
+        monkeypatch,
+        account=_valid_account(),
+        unread=HomeNotifications(unread=4),
+    )
 
     response = await client.get("/api/ai/v1/home", headers=GATEWAY_HEADERS)
 

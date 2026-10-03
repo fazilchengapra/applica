@@ -1,16 +1,17 @@
 """Assembles the account half of the home aggregate.
 
 This service owns the four account onboarding steps it can actually evaluate
-(``verify_email``, ``verify_phone``, ``add_photo``, ``complete_profile``) plus
-the notification unread count, because the ``Notification`` table lives in this
-service.
+(``verify_email``, ``verify_phone``, ``add_photo``, ``complete_profile``).
 
 The ``upload_cv`` step is deliberately *not* computed here: the master CV lives
 in ai_service's database. The BFF owns that step and the overall percent.
+
+The notification unread count is deliberately *not* here either: the
+``Notification`` table lives in notification_service's database. The BFF reads
+the count from there so each aggregate is served by the service that owns it.
 """
 
 from app.apps.authentication.models import AuthMethod
-from app.apps.notifications.models import Notification
 from app.apps.users.models import User
 from app.apps.users.services.roles_service import get_user_roles
 
@@ -21,15 +22,6 @@ COMPLETE_PROFILE_FIELDS = ("display_name", "bio", "country", "city")
 
 class UserNotFoundError(Exception):
     """Raised when the requested user does not exist."""
-
-
-def _count_unread_notifications(user) -> int:
-    """Number of the user's notifications that have not been read.
-
-    Unread is ``read_at IS NULL``. The composite index
-    ``idx_user_read_created (user, read_at, -created_at)`` covers this filter.
-    """
-    return Notification.objects.filter(user=user, read_at__isnull=True).count()
 
 
 def _is_profile_complete(profile) -> bool:
@@ -100,9 +92,8 @@ def _build_profile(profile) -> dict:
 def build_home_account(user_id: int) -> dict:
     """Everything the home aggregate needs that lives in this service.
 
-    Two queries total: the user joined to its profile, then the auth methods
-    and unread count (which is a single aggregate query rather than fetching
-    notification rows).
+    Two queries total: the user joined to its profile, then the auth methods.
+    The notification unread count is not included; see the module docstring.
     """
     try:
         user = User.objects.select_related("profile").get(id=user_id)
@@ -126,6 +117,5 @@ def build_home_account(user_id: int) -> dict:
         },
         "profile": _build_profile(profile),
         "account_steps": _build_account_steps(user, profile),
-        "notifications": {"unread": _count_unread_notifications(user)},
         "linked_accounts": _build_linked_accounts(user),
     }

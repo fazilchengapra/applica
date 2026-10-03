@@ -5,7 +5,16 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  // Resolved relative to this file (prisma/schema/schema.prisma), so reaching
+  // the service's src/ means climbing two levels, not one.
+  output = "../../src/generated/prisma"
+  // This service is CommonJS (see "type" in package.json), but the generator
+  // emits ESM-style relative imports with a .js extension by default. tsc accepts
+  // those under module=nodenext, but the CommonJS runtime cannot resolve them,
+  // so the client fails to load with "Cannot find module './internal/class.js'".
+  // An empty extension makes the generated imports extensionless, which both
+  // tsc and the CommonJS loader resolve.
+  importFileExtension = ""
 }
 
 datasource db {

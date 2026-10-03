@@ -36,7 +36,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
 | `dashboard.py` | `/dashboard` | `X-User-Id` | Single aggregate: CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed |
-| `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts + unread notifications (from user_service) composed with the CV onboarding step (local) |
+| `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts (from user_service) + unread count (from notification_service) composed with the CV onboarding step (local) |
 
 ### Dashboard endpoint
 
@@ -74,7 +74,7 @@ the home screen. It composes two sources:
 
 - **user_service** (`GET /internal/v1/users/home/{user_id}/`, fetched through
   Kong with `X-Internal-Secret`) supplies `user` (including `roles` and
-  `last_login`), `profile`, `linked_accounts`, `notifications.unread` and four
+  `last_login`), `profile`, `linked_accounts` and four
   of the five onboarding steps. That endpoint lives behind the gateway's
   `internal-secret-auth` plugin and re-verifies the shared secret itself.
 - **ai_service** (same database) supplies `upload_cv`, because the master CV is

@@ -9,11 +9,8 @@ class GatewayAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         expected_secret = os.getenv("GATEWAY_INTERNAL_SECRET")
 
-
         gateway_secret = request.headers.get("X-Gateway-Secret")
 
-
-        
         print(gateway_secret)
 
         if gateway_secret != expected_secret:

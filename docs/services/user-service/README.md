@@ -38,7 +38,9 @@ profiles, in-app notifications, and Celery task monitoring.
 
 - Django 6.0 + Django REST Framework 3.17
 - djangorestframework-simplejwt (cookie-based JWT)
-- Django Channels 4 / Daphne (WebSocket: `/ws/notifications/`)
+- Django Channels 4 / Daphne (installed, but no consumers remain — the
+  notification websocket was removed with the model on 2026-09-29; Kong
+  serves `/ws/notifications/` from `notification_service`)
 - Celery 5 + Redis (broker), Flower for monitoring
 - PostgreSQL 16, django-redis
 - Twilio (SMS/OTP), Django SMTP backend (Gmail), Google OAuth (`google-auth`)

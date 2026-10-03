@@ -1,0 +1,52 @@
+// The in-app notification inbox.
+//
+// This service owns the table outright: it is the only writer, and the
+// user-facing list/read/count endpoints read it directly. user_service used to
+// own these rows, but a notifications table that lives in the accounts service
+// cannot be joined, counted or paginated without a network hop, so ownership
+// moved here.
+//
+// The column types are deliberate rather than whatever Prisma would pick by
+// default, because this table is being adopted from Django's ORM:
+//
+//   id / read_at / created_at  Django's DateTimeField is `timestamptz`, and
+//                              timestamptz(6) keeps the microsecond precision
+//                              that auto_now_add stored. Prisma's default
+//                              `timestamp(3)` would silently round every
+//                              created_at to milliseconds, which both reorders
+//                              rows created in the same millisecond and changes
+//                              what the client is told about when it happened.
+//   user_id                    bigint in Django. Prisma's `Int` would have made
+//                              it int4, which silently caps user ids at
+//                              2^31-1; `@db.BigInt` keeps the 64-bit column
+//                              while staying a plain JS number, so the id needs
+//                              no bigint handling on its way into JSON.
+//   type / title               varchar, as declared in the Django model.
+//   metadata                   jsonb, matching Django's JSONField.
+//
+// There is no relation to a user: the id belongs to user_service's own table in
+// a different database, so `userId` is a plain column. That is also what makes
+// the composite index below usable — Postgres can seek it without a join.
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  // bigint, matching Django's BigAutoField user id. Prisma surfaces a BigInt
+  // field as a JS bigint, so the repository takes a plain number and converts
+  // once at the query boundary rather than letting `number` leak into types
+  // that would then need bigint-aware JSON handling.
+  userId    BigInt    @map("user_id")
+  type      String    @db.VarChar(64)
+  title     String    @db.VarChar(255)
+  body      String    @default("")
+  metadata  Json      @default("{}")
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // idx_user_read_created: serves the whole inbox. Filtering on userId alone
+  // (the default list) or on userId + read_at IS NULL (the unread list and the
+  // unread count) walks this index instead of filtering a per-user scan out of
+  // the table, and it carries created_at so the newest-first order is already
+  // in index order.
+  @@index([userId, readAt, createdAt(sort: Desc)], map: "idx_user_read_created")
+  @@index([type], map: "idx_notification_type")
+  @@map("notifications")
+}

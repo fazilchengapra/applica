@@ -2,8 +2,9 @@
 
 Covers the three pieces that can break without any real upstream:
 - ``_build_onboarding``: the step list, labels and percent arithmetic.
-- ``build_home``: that account data and the CV step are merged correctly.
-- ``fetch_account``: how user_service responses and failures are classified.
+- ``build_home``: that account data, the inbox count and the CV step are merged.
+- ``fetch_account`` / ``fetch_unread_count``: how the two upstreams' responses
+  and failures are classified.
 
 The public endpoint's own request/response behaviour is covered in
 ``test_home_router.py``.
@@ -48,7 +49,6 @@ def _account(**overrides) -> AccountPayload:
         user=_user(),
         profile=HomeProfile(),
         account_steps=AccountStepFlags(),
-        notifications=HomeNotifications(),
         linked_accounts=[],
     )
     base.update(overrides)
@@ -128,17 +128,21 @@ async def test_build_home_merges_account_state_and_cv_step(monkeypatch):
     account = _account(
         user=_user(id=7, email="me@example.com", roles=["user", "staff"]),
         account_steps=AccountStepFlags(verify_email=True, add_photo=True),
-        notifications=HomeNotifications(unread=3),
     )
 
     async def fetch(user_id):
         assert user_id == 7
         return account
 
+    async def unread(user_id):
+        assert user_id == 7
+        return HomeNotifications(unread=3)
+
     async def has_cv(db, user_id):
         return True
 
     monkeypatch.setattr(clients, "fetch_account", fetch)
+    monkeypatch.setattr(clients, "fetch_unread_count", unread)
     monkeypatch.setattr(repository, "has_uploaded_cv", has_cv)
 
     result = await build_home(db=object(), user_id=7)
@@ -155,10 +159,37 @@ async def test_build_home_propagates_upstream_failure(monkeypatch):
     async def boom(user_id):
         raise UserServiceUnavailable("nope")
 
+    async def no_unread(user_id):
+        return HomeNotifications(unread=0)
+
     async def no_cv(db, user_id):
         return False
 
     monkeypatch.setattr(clients, "fetch_account", boom)
+    monkeypatch.setattr(clients, "fetch_unread_count", no_unread)
+    monkeypatch.setattr(repository, "has_uploaded_cv", no_cv)
+
+    with pytest.raises(UserServiceUnavailable):
+        await build_home(db=object(), user_id=1)
+
+
+async def test_build_home_fails_when_the_inbox_is_unreachable(monkeypatch):
+    """A dead notification_service must surface, not silently report 0 unread.
+
+    Rendering "0 unread" when the inbox is actually down would look identical to
+    a genuinely caught-up user, and the notification would simply never be seen.
+    """
+    async def fetch(user_id):
+        return _account()
+
+    async def unread_boom(user_id):
+        raise UserServiceUnavailable("nope")
+
+    async def no_cv(db, user_id):
+        return False
+
+    monkeypatch.setattr(clients, "fetch_account", fetch)
+    monkeypatch.setattr(clients, "fetch_unread_count", unread_boom)
     monkeypatch.setattr(repository, "has_uploaded_cv", no_cv)
 
     with pytest.raises(UserServiceUnavailable):
@@ -190,9 +221,7 @@ async def test_fetch_account_parses_a_valid_reply(monkeypatch):
         assert request.url.path == "/internal/v1/users/home/7/"
         return httpx.Response(
             200,
-            json=_account(user=_user(id=7), notifications=HomeNotifications(unread=2)).model_dump(
-                mode="json"
-            ),
+            json=_account(user=_user(id=7)).model_dump(mode="json"),
         )
 
     _mock_transport(monkeypatch, handler)
@@ -200,7 +229,47 @@ async def test_fetch_account_parses_a_valid_reply(monkeypatch):
     account = await clients.fetch_account(7)
 
     assert account.user.id == 7
-    assert account.notifications.unread == 2
+
+
+# --- fetch_unread_count -------------------------------------------------------
+
+
+async def test_fetch_unread_count_parses_a_valid_reply(monkeypatch):
+    def handler(request):
+        assert request.headers["X-Internal-Secret"] == clients.settings.GATEWAY_INTERNAL_SECRET
+        # The user id is a path parameter, not a header: this route is not
+        # fronted by a browser JWT, so identity comes from the shared secret plus
+        # the explicit id.
+        assert request.url.path == "/api/v1/notifications/internal/users/7/unread-count/"
+        return httpx.Response(200, json={"unread": 4})
+
+    _mock_transport(monkeypatch, handler)
+
+    assert (await clients.fetch_unread_count(7)).unread == 4
+
+
+async def test_fetch_unread_count_maps_5xx_to_userserviceerror(monkeypatch):
+    _mock_transport(monkeypatch, lambda request: httpx.Response(503))
+
+    with pytest.raises(UserServiceError):
+        await clients.fetch_unread_count(7)
+
+
+async def test_fetch_unread_count_maps_timeout_to_unavailable(monkeypatch):
+    def handler(request):
+        raise httpx.ReadTimeout("too slow", request=request)
+
+    _mock_transport(monkeypatch, handler)
+
+    with pytest.raises(UserServiceUnavailable):
+        await clients.fetch_unread_count(7)
+
+
+async def test_fetch_unread_count_rejects_a_malformed_body(monkeypatch):
+    _mock_transport(monkeypatch, lambda request: httpx.Response(200, json={"nope": 1}))
+
+    with pytest.raises(UserServiceError):
+        await clients.fetch_unread_count(7)
 
 
 async def test_fetch_account_maps_5xx_to_userserviceerror(monkeypatch):

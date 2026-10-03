@@ -1,15 +1,18 @@
 # notification_service
 
-Node.js (Express 5 + TypeScript) service. Handles **all outbound
-notifications** for the platform:
+Node.js (Express 5 + TypeScript) service. It owns the platform's
+**in-app notification inbox** and all **outbound** notifications:
 
+- **Inbox** — the `notifications` table (Prisma/Postgres) plus the five
+  `/api/v1/notify` endpoints that read and update it
 - **Email** — account events (registration, verification, password, email
   change) via Gmail SMTP (Nodemailer)
 - **SMS / OTP** — phone verification and login OTPs via Twilio
-- **Realtime** — WebSocket push (CV processing status) via Redis pub/sub + `ws`
+- **Realtime** — WebSocket push (inbox creates, CV processing status) via
+  Redis pub/sub + `ws`
 
 Producers are `user_service` (auth events) and `ai_service` (CV pipeline
-events). This service only receives events and delivers them.
+events).
 
 > ⚠️ This doc describes the **actual implementation**. Older versions of this
 > doc described an SNS → SQS → Lambda → BullMQ fan-out and Kong HMAC
@@ -107,12 +110,52 @@ by `eventType` (`src/constants/eventTypes.ts`):
 
 ## API endpoints
 
+### In-app inbox (browser-facing, `/api/v1/notify`)
+
+The service **owns the `notifications` table** (see [Database](#database-prisma)).
+These five endpoints are the whole read/write surface of the inbox; user_service
+only creates rows and no longer serves any of them.
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| `GET` | `/api/v1/notify/` | List, newest first. `?unread_only=true&type=account.*&page=&page_size=` (1–100, default 20) | JWT + `X-User-Id` (Kong) |
+| `GET` | `/api/v1/notify/unread-count/` | `{"unread": 4}` | JWT + `X-User-Id` (Kong) |
+| `POST` | `/api/v1/notify/<uuid>/read/` | Mark one read, returns it. Idempotent | JWT + `X-User-Id` (Kong) |
+| `POST` | `/api/v1/notify/read-all/` | `{"updated": n}` | JWT + `X-User-Id` (Kong) |
+| `DELETE` | `/api/v1/notify/<uuid>/` | `204`, no body | JWT + `X-User-Id` (Kong) |
+
+List responses use the DRF-style envelope `{count, next, previous, results}`.
+A row is serialized as `{id, type, title, body, metadata, read_at, created_at}`
+(snake_case, matching the API this replaced in Django).
+
+Notes:
+
+- `type` is either an exact value or a **trailing** wildcard (`account.*`). A
+  `*` anywhere else is a `400`, because it could only ever match literally and
+  would silently hide a client bug. The prefix is unconstrained, so a new
+  namespace (`job.*`) works without a code change.
+- A page past the end is an empty page with a `previous` link (clamped to the
+  last real page), not a `404`. Only a *malformed* page is a `400`.
+- Another user's row answers `404`, not `403`, so the id space can't be probed.
+- The browser routes are mounted on their own `/api/v1/notify` prefix, separate
+  from the internal `/api/v1/notifications/*` routes, so adding an internal path
+  can never widen the user-authenticated surface.
+
+### Outbound + service-to-service
+
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
 | `GET` | `/health` | Health check | none |
-| `POST` | `/api/v1/notifications/internal/dispatch` | Main event ingestion → BullMQ | `X-Internal-Service: notification-dispatcher` (set by Kong `internal-secret-auth`) |
-| `POST` | `/api/v1/notifications/realtime/cv-status` | Publish CV status → WebSocket | none (fronted by Kong) |
-| `WS` | `/ws/notifications` | Client push channel | `X-User-Id` header (injected by Kong `header_injector`) |
+| `POST` | `/api/v1/notifications/internal/notifications` | Create a row (the write path for user_service) | `X-Internal-Secret` |
+| `GET` | `/api/v1/notifications/internal/users/<user_id>/unread-count/` | Unread count for the `ai_service` home BFF | `X-Internal-Secret` |
+| `POST` | `/api/v1/notifications/internal/dispatch` | Main event ingestion → BullMQ | `X-Internal-Secret` |
+| `POST` | `/api/v1/notifications/realtime/cv-status` | Publish CV status → WebSocket | `X-Internal-Secret` |
+| `WS` | `/ws/notifications` | Client push channel | JWT + `X-User-Id` (Kong) |
+
+Every internal route is behind `requireInternalService`, which checks the shared
+secret in constant time. The internal unread-count takes the user id as a path
+parameter rather than trusting an `X-User-Id` header, because the caller is a
+service acting on someone else's behalf.
 
 ## Queues (BullMQ)
 
@@ -127,10 +170,29 @@ Job config: 3 attempts, exponential backoff @ 30s, `removeOnComplete: 1000`
 
 ## Database (Prisma)
 
-Prisma 7 is installed with a multi-file schema (`prisma/schema/`) pointing at
-the `notification_postgres` database (host port 5434) — but **only a
-placeholder `Test` model exists and no `PrismaClient` is used at runtime**.
-The service is effectively stateless today; queues and Redis hold all state.
+Prisma 7, multi-file schema under `prisma/schema/`, pointing at the
+`notification_postgres` database (host port 5434). The `Notification` model
+(`prisma/schema/models/notification.prisma`) is the **in-app inbox** and is the
+only runtime table; it was migrated from `user_service`'s Django `notifications`
+table on 2026-09-29 and is the sole owner.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | client-referenced, avoids enumeration |
+| `userId` | `bigint` | no FK — this is a separate database, so account deletion is not cascaded here |
+| `type` | `varchar(64)` | dot-namespaced, e.g. `account.password_changed` |
+| `title` / `body` | `varchar(255)` / `text` | |
+| `metadata` | `jsonb` | PII is masked by the producer before it lands here |
+| `readAt` | `timestamptz(6)?` | null = unread |
+| `createdAt` | `timestamptz(6)` | |
+
+Indexes: `idx_user_read_created (user_id, read_at, created_at DESC)` covers the
+unread filter *and* the newest-first ordering, and `idx_notification_type (type)`
+covers the type filter. A placeholder `Test` model also exists in the schema.
+
+The `userId` bigint is why the repository converts to `BigInt` before querying —
+Passing a JS `number` past `Number.MAX_SAFE_INTEGER` would silently lose
+precision.
 
 ## Configuration
 
@@ -140,7 +202,10 @@ Env vars validated by `src/config/env.ts` (see `.env` in the service dir):
 |---|---|
 | `PORT` | HTTP port (default 3002, `.env` sets 8000) |
 | `NODE_ENV` | `development` / `production` |
-| `DATABASE_URL` | Prisma DSN (currently unused at runtime) |
+| `DATABASE_URL` | Prisma DSN for the inbox table |
+| `GATEWAY_INTERNAL_SECRET` | Shared secret for internal routes and `X-Gateway-Secret` checks |
+| `USER_SERVICE_URL` | Upstream used by the dispatch workers |
+| `USER_SERVICE_TIMEOUT` | Timeout for those calls |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Nodemailer Gmail credentials |
 | `REDIS_HOST` / `REDIS_PORT` | BullMQ (db 3) + realtime (db 4) |
 | `TWILIO_FROM_NUMBER` / `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | SMS |
@@ -164,9 +229,15 @@ docker compose up --build notification_service notification-worker
 
 ## Tests
 
-**None exist.** The `tests/` directory is empty, the `test` script is a stub,
-and `package.json` has no `build` script even though the Dockerfile production
-stage runs `npm run build` (production image build would fail today).
+`npm test` runs Vitest. `tests/inbox.test.ts` (43 cases) covers the five
+`/api/v1/notify` endpoints, the internal write and unread-count routes, auth
+rejection, and the isolation of one user's rows from another's.
+
+They run against the **real Prisma client and the dev database** rather than a
+mocked repository, because most of what can break here is SQL: the composite
+index behind the unread filter and newest-first ordering, the `userId` bigint
+coercion, and the type-prefix match. Rows are written under a synthetic user id
+and deleted afterwards, so the dev inbox is left as it was found.
 
 ## External integrations
 

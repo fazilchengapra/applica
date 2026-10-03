@@ -2,6 +2,39 @@
 - name: notification-service
   url: http://notification_service:8000
   routes:
+    # Browser-facing inbox. Kong verifies the JWT and stamps X-User-Id, which is
+    # how the service knows whose notifications to return.
+    - name: notification-user
+      paths:
+        - /api/v1/notify
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: jwt
+          config:
+            claims_to_verify:
+              - exp
+            key_claim_name: iss
+            cookie_names:
+              - access_token
+
+        - name: header_injector
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+
+    # Service-to-service: event dispatch and inbox writes. Separate prefix from
+    # notification-user, so a browser JWT is never enough to reach it.
+    - name: notification-dispatch-secure
+      paths:
+        - /api/v1/notifications/internal
+      strip_path: false
+      preserve_host: true
+      plugins:
+        - name: internal-secret-auth
+          config:
+            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+            internal_service: "user-service"
+
     - name: realtime-cv-status
       paths:
         - /api/v1/notifications/realtime/cv-status
@@ -11,17 +44,8 @@
         - name: internal-secret-auth
           config:
             gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
+            internal_service: "ai-service"
 
-    - name: notification-dispatch-secure
-      paths:
-        - /api/v1/notifications
-      strip_path: false
-      preserve_host: true
-      plugins:
-        - name: internal-secret-auth
-          config:
-            gateway_secret: "__GATEWAY_INTERNAL_SECRET__"
-    
     - name : websocket-connection
       paths:
         - /ws/notifications/

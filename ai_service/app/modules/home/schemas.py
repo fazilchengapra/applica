@@ -10,7 +10,7 @@ page in the client.
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OnboardingStepKey(str, Enum):
@@ -72,6 +72,21 @@ class HomeNotifications(BaseModel):
     unread: int = 0
 
 
+class UnreadCountPayload(BaseModel):
+    """Wire shape of notification_service's internal unread-count reply.
+
+    Separate from :class:`HomeNotifications` because it validates an *upstream*
+    response, and every field here is required with unknown keys rejected. Sharing
+    the public model would let a renamed or mistyped field validate against its
+    default and silently report a wrong count — the one field in the home
+    aggregate that has no other source to cross-check against.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    unread: int = Field(ge=0)
+
+
 class HomeLinkedAccount(BaseModel):
     provider: str
     is_verified: bool
@@ -106,5 +121,4 @@ class AccountPayload(BaseModel):
     user: HomeUser
     profile: HomeProfile = HomeProfile()
     account_steps: AccountStepFlags = AccountStepFlags()
-    notifications: HomeNotifications = HomeNotifications()
     linked_accounts: list[HomeLinkedAccount] = Field(default_factory=list)

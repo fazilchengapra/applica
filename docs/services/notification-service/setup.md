@@ -7,17 +7,23 @@
 - Environment variables — the service validates them with Zod in
   `src/config/env.ts`; copy `.env` and fill in values.
 
-> `.env.example` is currently **empty** — populate from `src/config/env.ts`
-> (see table below). A PostgreSQL `DATABASE_URL` is required by the Prisma
-> schema but is **not used at runtime** (no `PrismaClient` is imported).
+> `.env.example` is a starting point — populate the real values from
+> `src/config/env.ts` (see table below). A reachable PostgreSQL
+> `DATABASE_URL` is now **required**: it backs the in-app inbox, and
+> `src/lib/prisma.ts` connects on boot.
 
 ## Steps
 
 ```bash
 cd notification_service
 npm install
-npm run dev          # API server (ts-node-dev, port 8000)
+npx prisma migrate deploy   # creates the notifications table
+npm run dev                 # API server (ts-node-dev, port 8000)
 ```
+
+`prisma migrate deploy` is not optional: the service connects to Prisma on boot
+and every `/api/v1/notify` request queries the `notifications` table, so without
+the migration the inbox returns 500s while email/SMS keeps working.
 
 In a second terminal, run the BullMQ workers (required to actually send):
 
@@ -31,7 +37,9 @@ npm run start:worker
 |---|---|
 | `PORT` | HTTP port (default 3002; `.env` sets 8000) |
 | `NODE_ENV` | `development` / `production` |
-| `DATABASE_URL` | Prisma DSN (configured only; unused at runtime) |
+| `DATABASE_URL` | Prisma DSN for the in-app inbox table (**required**) |
+| `GATEWAY_INTERNAL_SECRET` | Shared secret for internal routes and `X-Gateway-Secret` |
+| `USER_SERVICE_URL` / `USER_SERVICE_TIMEOUT` | Upstream + timeout for dispatch workers |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Nodemailer Gmail credentials |
 | `REDIS_HOST` / `REDIS_PORT` | Redis connection |
 | `TWILIO_FROM_NUMBER` / `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | SMS delivery |
@@ -45,7 +53,11 @@ docker compose up --build notification_service notification-worker
 
 `target: development` in compose runs `npm run dev`; the worker container runs
 `npm run start:worker`. The API is reachable through Kong at
-`http://localhost:8000/api/v1/notifications/...`.
+`http://localhost:8000/api/v1/notify/...` (browser inbox) and
+`http://localhost:8000/api/v1/notifications/internal/...` (service-to-service).
+
+Run `npx prisma migrate deploy` once against the database before first use; it
+is not part of the container start command.
 
 ## Sending a test dispatch
 

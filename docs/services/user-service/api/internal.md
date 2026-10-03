@@ -78,7 +78,6 @@ step list from ever disagreeing.
     "add_photo": true,
     "complete_profile": false
   },
-  "notifications": { "unread": 3 },
   "linked_accounts": [
     {
       "provider": "google",
@@ -109,8 +108,10 @@ step list from ever disagreeing.
 - `complete_profile` is true only when `display_name`, `bio`, `country` and
   `city` are all non-blank.
 - `add_photo` is true when `profile.avatar_url` is set.
-- `notifications.unread` counts in-app notifications (`Notification` rows with
-  `read_at` null). It is computed here because the rows live in this service;
-  `notification_service` only dispatches and has nothing to count.
+- There is **no** `notifications` key. The inbox moved to `notification_service`
+  on 2026-09-29, so the BFF reads the unread count from
+  `GET /api/v1/notifications/internal/users/{user_id}/unread-count/` there
+  instead. Leaving the key in place would let the consumer keep rendering a
+  count from a table this service no longer has.
 - `linked_accounts` comes from the auth provider links, so a Google-only user
   gets one entry and an email-only user gets an empty list.

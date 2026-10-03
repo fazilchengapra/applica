@@ -42,7 +42,9 @@ and `.env.example`:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | |
 | `FRONTEND_URL` | Base URL used in verification/reset links | `http://localhost:3000` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `SNS_NOTIFICATIONS_TOPIC_ARN` | SNS publishing | |
-| `INTERNAL_SHARED_SECRET` | Verified on `/api/v1/notify/push/` | |
+| `GATEWAY_INTERNAL_SECRET` | Shared service-to-service secret; verified on `/internal/v1/users/` and sent to notification_service | |
+| `NOTIFICATION_SERVICE_URL` | Kong base URL used to create in-app notifications | `http://kong:8000` |
+| `NOTIFICATION_SERVICE_TIMEOUT` | Seconds to wait for that call; a timeout is logged, never raised | `5` |
 
 ## Running tests
 
