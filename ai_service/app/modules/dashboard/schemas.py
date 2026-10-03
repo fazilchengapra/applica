@@ -192,6 +192,15 @@ class DashboardResponse(BaseModel):
 
 
 class MatchStatusBreakdown(BaseModel):
+    """Matches grouped into the five application-pipeline stages.
+
+    The buckets are a *rollup*, not the raw enum: the stored statuses
+    ``NEW``/``VIEWED`` both count as ``new``, ``SAVED``/``SHORTLISTED`` as
+    ``shortlisted``, and ``DISMISSED``/``REJECTED`` as ``rejected``. Every
+    ``MatchStatus`` value falls in exactly one bucket, so the five always sum to
+    ``total`` — which is why a row can never be counted twice or dropped.
+    """
+
     new: int = 0
     shortlisted: int = 0
     applied: int = 0
@@ -201,6 +210,12 @@ class MatchStatusBreakdown(BaseModel):
 
 
 class DashboardStatsResponse(BaseModel):
+    """Headline counters for the dashboard's stat tiles.
+
+    A deliberately flat, cheap read model — one aggregate per figure, no cards
+    and no activity feed — so a client can poll it for the counters without
+    paying for the full ``GET /dashboard`` aggregate.
+    """
 
     match_status_breakdown: MatchStatusBreakdown = Field(
         default_factory=MatchStatusBreakdown
@@ -228,3 +243,58 @@ class DashboardStatsResponse(BaseModel):
         default=0,
         description="Tailored CVs still rendering (render_status pending or processing)",
     )
+
+
+class TailoredCVProgress(str, enum.Enum):
+    """How far the user's tailoring for a job has got.
+
+    ``none`` is not stored anywhere — it is what the endpoint reports when the
+    job has no tailoring run at all, so the client can render a "Tailor CV"
+    affordance without a separate existence check.
+    """
+
+    none = "none"
+    in_progress = "in_progress"
+    completed = "completed"
+    failed = "failed"
+
+
+class TopMatchResult(BaseModel):
+    """One row of the top-matches table.
+
+    Deliberately flat — ``job_title``/``company_name`` are plain strings rather
+    than the nested job/company objects ``JobMatchCard`` carries — because this
+    is a table row, not a card. It also surfaces the three stage-level scores
+    that the card omits, so a client can explain *why* a row scored as it did.
+    """
+
+    id: UUID
+    job_title: str
+    company_name: str = Field(
+        description="Company display_name, falling back to normalized_name"
+    )
+    match_status: MatchStatus
+    final_score: float
+    vector_score: float | None = None
+    lexical_score: float | None = None
+    rrf_score: float | None = None
+    key_matches: list[str] | None = None
+    key_gaps: list[str] | None = None
+    tailored_cv_status: TailoredCVProgress = Field(
+        default=TailoredCVProgress.none,
+        description=(
+            "State of the most recent tailoring run for this job: none, "
+            "in_progress (pending or processing), completed or failed"
+        ),
+    )
+
+
+class TopMatchListOut(BaseModel):
+    """``{count, results}`` page envelope.
+
+    ``count`` is the total number of qualifying matches, not the length of this
+    page, so a client can compute the page count without a second request.
+    """
+
+    count: int
+    results: list[TopMatchResult] = Field(default_factory=list)

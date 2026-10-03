@@ -31,10 +31,14 @@ from app.modules.dashboard.schemas import (
     MatchCardJob,
     MatchStatusBreakdown,
     TailoredCVDashboardCard,
+    TailoredCVProgress,
+    TopMatchListOut,
+    TopMatchResult,
 )
 from app.modules.master_cv.models import CVStatus, MasterCVVersion
 from app.modules.master_cv.repository import get_cv_status_counts
 from app.modules.matching.models.job_match import MatchStatus
+from app.modules.tailoring.models import TailoringRunStatus
 from app.modules.tailoring.schemas import (
     TailoredCVTemplateOut,
     TailoringRunOut,
@@ -272,6 +276,9 @@ async def build_dashboard_stats(
 ) -> DashboardStatsResponse:
     match_counts = await repository.get_match_pipeline_counts(db, user_id)
     average_score = await repository.get_average_final_score(db, user_id)
+    # Reuses the existing tailored-CV aggregate rather than adding a third
+    # variant of the same query: ``rendered``/``rendering`` are already exactly
+    # the completed/in-progress split this endpoint reports.
     tailored_counts = await repository.get_tailored_cv_counts(db, user_id)
 
     return DashboardStatsResponse(
@@ -280,4 +287,58 @@ async def build_dashboard_stats(
         top_n=top_n,
         tailored_cvs_completed=tailored_counts["rendered"],
         tailored_cvs_in_progress=tailored_counts["rendering"],
+    )
+
+
+# Tailoring run status -> the coarser progress the table shows. The run enum
+# splits the early pipeline into pending/processing; the table collapses those
+# into one ``in_progress`` because a user cannot act on the difference.
+_RUN_STATUS_TO_PROGRESS = {
+    TailoringRunStatus.pending: TailoredCVProgress.in_progress,
+    TailoringRunStatus.processing: TailoredCVProgress.in_progress,
+    TailoringRunStatus.completed: TailoredCVProgress.completed,
+    TailoringRunStatus.failed: TailoredCVProgress.failed,
+}
+
+
+def _to_top_match_result(row) -> TopMatchResult:
+    # The subquery yields NULL for a job the user never tailored, and
+    # TailoringRunStatus for one they did.
+    run_status = row.tailored_cv_status
+    return TopMatchResult(
+        id=row.id,
+        job_title=row.job_title,
+        company_name=row.company_display_name or row.company_normalized_name,
+        match_status=_status_value(row.match_status),
+        final_score=float(row.final_score),
+        vector_score=row.vector_score,
+        lexical_score=row.lexical_score,
+        rrf_score=row.rrf_score,
+        key_matches=row.key_matches,
+        key_gaps=row.key_gaps,
+        tailored_cv_status=_RUN_STATUS_TO_PROGRESS.get(
+            run_status, TailoredCVProgress.none
+        ),
+    )
+
+
+async def build_top_matches(
+    db: AsyncSession,
+    user_id: int,
+    min_score: float | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> TopMatchListOut:
+    """One page of the top-matches table.
+
+    ``count`` is the total qualifying matches, so it is fetched separately from
+    the page and reflects the same ``min_score`` filter. Sequential awaits, for
+    the shared-AsyncSession reason documented on :func:`build_dashboard`.
+    """
+    count = await repository.count_top_matches(db, user_id, min_score=min_score)
+    rows = await repository.get_top_match_results(
+        db, user_id, min_score=min_score, limit=limit, offset=offset
+    )
+    return TopMatchListOut(
+        count=count, results=[_to_top_match_result(row) for row in rows]
     )

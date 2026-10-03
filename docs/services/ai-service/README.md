@@ -35,7 +35,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
-| `dashboard.py` | `/dashboard`, `/dashboard/stats` | `X-User-Id` | `/dashboard`: single aggregate — CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed. `/dashboard/stats`: flat headline counters only |
+| `dashboard.py` | `/dashboard`, `/dashboard/stats`, `/dashboard/top-matches` | `X-User-Id` | `/dashboard`: single aggregate — CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed. `/dashboard/stats`: flat headline counters only. `/dashboard/top-matches`: paginated top-matches table with score breakdown + tailoring progress |
 | `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts (from user_service) + unread count (from notification_service) composed with the CV onboarding step (local) |
 
 ### Dashboard endpoint
@@ -108,6 +108,48 @@ Postgres cannot safely drop a label that rows hold). Adding them automatically
 widens `PATCH /job-matches/{id}/status` and `GET /job-matches?status=`, since both
 validate against the enum. No backfill: pre-existing rows keep their status and
 are counted through the fold above.
+
+### Top matches endpoint
+
+`GET /api/ai/v1/dashboard/top-matches` backs the "Top Matches" table: one page of
+the user's highest-scoring matches, each row carrying its score breakdown and
+tailoring progress. Always `200`; an account with no matches gets
+`{"count": 0, "results": []}`.
+
+| Param | Default | Range | Notes |
+|---|---|---|---|
+| `limit` | `20` | `1..100` | Page size |
+| `offset` | `0` | `>= 0` | Rows to skip |
+| `min_score` | none | `>= 0`, **no upper bound** | Floor on `final_score` |
+
+| Field | Notes |
+|---|---|
+| `count` | Total qualifying matches, *not* the page length — so a client can render "1–20 of 137". Counted in a separate `COUNT` over the same filter |
+| `results[]` | Each entry has `id`, `job_title`, `company_name`, `match_status`, `final_score`, `vector_score`, `lexical_score`, `rrf_score`, `key_matches`, `key_gaps`, `tailored_cv_status` |
+| `company_name` | `companies.display_name`, falling back to `normalized_name` when no display name is set |
+| `match_status` | The **raw** `MatchStatus`, serialized lowercase. Unlike `/dashboard/stats` there is no bucket rollup here: the table filters on individual statuses |
+| `tailored_cv_status` | Progress of the most recent tailoring run for that job: `none`, `in_progress`, `completed`, `failed` |
+
+Ordering is `final_score DESC, matched_at DESC`. The `matched_at` tie-breaker is
+load-bearing: the five seeded matches include three at exactly `3.0`, and paging
+over a non-total order can repeat or drop rows at a page boundary.
+
+`min_score` has **no upper bound** on purpose. `final_score` carries the same
+0–1 vs 0–100 inconsistency described above, so a `le=1` would hide every real row
+while still admitting the 0–1 ones. The bound is therefore only a floor; the
+client scales the control to whatever the data looks like.
+
+`tailored_cv_status` reads the latest run per job through a **scalar subquery**
+(`ORDER BY created_at DESC, id DESC LIMIT 1`), not a join. This matters:
+`tailoring_runs` is unique on `(user_id, job_id, cv_version_id)`, not
+`(user_id, job_id)`, so a user re-tailoring after a new master CV legitimately has
+several runs for one job. Joining would emit one row per run and inflate both
+`count` and the page. `test_top_matches_reads_the_run_through_a_scalar_subquery`
+asserts this on the generated SQL, since the response cannot show it.
+
+Mapping is lossy in one direction only: `pending` and `processing` both render as
+`in_progress`, because the column shows step count rather than pipeline stage. The
+other three pass through, and a job with no run at all is `none`.
 
 ### Home endpoint
 

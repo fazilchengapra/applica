@@ -45,6 +45,16 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   `REJECTED`; the pre-existing `VIEWED`/`SAVED`/`DISMISSED` statuses fold into
   the corresponding buckets rather than being backfilled, and are still
   accepted by `PATCH /job-matches/{id}/status` and `GET /job-matches?status=`.
+- `ai_service` top-matches table (`GET /api/ai/v1/dashboard/top-matches`): a
+  paginated read model for the highest-scoring matches, each row carrying its
+  score breakdown (`vector`/`lexical`/`rrf`, `key_matches`, `key_gaps`), the raw
+  `match_status`, and `tailored_cv_status` derived from the job's most recent
+  tailoring run (`none`/`in_progress`/`completed`/`failed`). Returns a `count` of
+  all qualifying matches alongside the page, and supports `limit`/`offset` plus an
+  optional floor-only `min_score`. The latest run is read through a scalar
+  subquery rather than a join, because `tailoring_runs` is unique per
+  `(user_id, job_id, cv_version_id)` and a join would duplicate a match once a
+  user re-tailors against a newer master CV.
 - Shared `get_user_roles` helper (`user_service`), replacing the role list that
   was duplicated in email login and Google OAuth.
 

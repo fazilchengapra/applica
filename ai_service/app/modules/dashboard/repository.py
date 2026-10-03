@@ -211,6 +211,107 @@ async def get_top_match_cards(
     return result.all()
 
 
+_TOP_MATCH_BASE_COLUMNS = (
+    JobMatch.id,
+    JobMatch.status.label("match_status"),
+    JobMatch.final_score,
+    JobMatch.vector_score,
+    JobMatch.lexical_score,
+    JobMatch.rrf_score,
+    JobMatch.key_matches,
+    JobMatch.key_gaps,
+    Job.title.label("job_title"),
+    Company.display_name.label("company_display_name"),
+    Company.normalized_name.label("company_normalized_name"),
+)
+
+
+def _latest_run_status(user_id: int):
+    """Correlated subquery: this job's most recent tailoring run status.
+
+    ``tailoring_runs`` is unique on ``(user_id, job_id, cv_version_id)``, not on
+    ``(user_id, job_id)`` — re-tailoring after a new master CV adds a second run
+    for the same job. A plain LEFT JOIN would then emit one match row per run,
+    inflating both the page and ``count`` and making ``limit``/``offset`` paging
+    walk a join with duplicates. Taking the newest run per job in a scalar
+    subquery keeps the match row count exact.
+
+    Ordered by ``created_at`` then ``id`` so "most recent" is total: two runs
+    created in the same transaction can share a timestamp, and without the id
+    tie-breaker the pick would be arbitrary between requests.
+
+    Returns NULL when the job has no run; the caller maps that to
+    ``TailoredCVProgress.none``.
+    """
+    return (
+        select(TailoringRun.status)
+        .where(
+            TailoringRun.user_id == user_id,
+            TailoringRun.job_id == JobMatch.job_id,
+        )
+        .order_by(TailoringRun.created_at.desc(), TailoringRun.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+async def count_top_matches(
+    db: AsyncSession, user_id: int, min_score: float | None = None
+) -> int:
+    """Total matches qualifying for the top-matches list, ignoring paging.
+
+    Counted independently of the page query so the two can never disagree about
+    the total. Deliberately does *not* touch the tailoring runs, for the reason
+    given on :func:`_latest_run_status`.
+    """
+    stmt = select(func.count()).select_from(JobMatch).where(JobMatch.user_id == user_id)
+    if min_score is not None:
+        stmt = stmt.where(JobMatch.final_score >= min_score)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+def _top_matches_stmt(
+    user_id: int, min_score: float | None = None
+) -> Select[tuple[Any, ...]]:
+    """The top-matches SELECT, ordered but unpaged.
+
+    Split out from :func:`get_top_match_results` so the SQL shape can be asserted
+    in tests without a session — the scalar-subquery-not-join choice and the
+    tie-break ordering are both invisible in the response, and a test that
+    re-implemented the statement instead of calling this would drift silently.
+    """
+    stmt = (
+        select(
+            *_TOP_MATCH_BASE_COLUMNS,
+            _latest_run_status(user_id).label("tailored_cv_status"),
+        )
+        .join(Job, Job.id == JobMatch.job_id)
+        .join(Company, Company.id == Job.company_id)
+        .where(JobMatch.user_id == user_id)
+    )
+    if min_score is not None:
+        stmt = stmt.where(JobMatch.final_score >= min_score)
+
+    # matched_at breaks ties so paging is stable when scores are equal —
+    # otherwise rows at a page boundary can repeat or drop between requests.
+    return stmt.order_by(JobMatch.final_score.desc(), JobMatch.matched_at.desc())
+
+
+async def get_top_match_results(
+    db: AsyncSession,
+    user_id: int,
+    min_score: float | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[Any]:
+    """Highest-scoring matches as flat table rows, with tailoring progress."""
+    result = await db.execute(
+        _top_matches_stmt(user_id, min_score).offset(offset).limit(limit)
+    )
+    return result.all()
+
+
 async def get_tailored_cv_counts(db: AsyncSession, user_id: int) -> dict[str, int]:
     # CASE (not ``count(col == 'x')``): a boolean comparison yields FALSE rather
     # than NULL for non-matching rows, so count() would tally every row into
