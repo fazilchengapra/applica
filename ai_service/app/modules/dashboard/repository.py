@@ -5,23 +5,41 @@ pure assembler. Column selects (not ORM entities) keep every section to a single
 round trip and avoid lazy loads on the async session.
 """
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import String, case, cast, func, literal, select, union_all
+from sqlalchemy import (
+    String,
+    case,
+    cast,
+    distinct,
+    func,
+    literal,
+    literal_column,
+    select,
+    union_all,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
 from app.modules.companies.models import Company
 from app.modules.cv_template.models import CVTemplate
+from app.modules.jobs.models.job_skills import JobSkill
 from app.modules.jobs.models.jobs import Job
 from app.modules.jobs.models.skills import Skill
 from app.modules.master_cv.models import MasterCV, MasterCVVersion
 from app.modules.master_cv.models.cv_skills import CVSkill
+from app.modules.master_cv.models.master_cv import CVStatus
 from app.modules.matching.models.job_match import JobMatch, MatchStatus
 from app.modules.tailoring.models import TailoredCV, TailoringRun
 
 _RENDER_NOT_DONE = ("pending", "processing")
+
+# Monday-aligned week bucket for job_matches.matched_at. Raw SQL text so the same
+# expression appears verbatim in the select list, GROUP BY and ORDER BY — see
+# _score_trend_stmt for why func.date_trunc cannot be used here.
+_WEEK_BUCKET = literal_column("date_trunc('week', job_matches.matched_at)")
 
 _MATCH_CARD_COLUMNS = (
     JobMatch.id,
@@ -409,4 +427,154 @@ def _activity_stmt(user_id: int) -> Select:
 
 async def get_activity(db: AsyncSession, user_id: int) -> list[Any]:
     result = await db.execute(_activity_stmt(user_id))
+    return result.all()
+
+
+_TAILORING_RUN_COLUMNS = (
+    TailoringRun.id,
+    TailoringRun.status.label("run_status"),
+    TailoringRun.stage.label("run_stage"),
+    TailoringRun.created_at,
+    TailoringRun.updated_at,
+    TailoringRun.error_message,
+    TailoredCV.id.label("tailored_cv_id"),
+    Job.title.label("job_title"),
+    Company.display_name.label("company_display_name"),
+    Company.normalized_name.label("company_normalized_name"),
+)
+
+
+def _tailoring_runs_stmt(user_id: int) -> Select[tuple[Any, ...]]:
+    """Newest-first page of a user's tailoring runs, ordered but unpaged.
+
+    ``TailoredCV`` is joined with an outer join on purpose: it is the table that
+    says whether a run got as far as producing a CV, and a run that has not (still
+    queued, or failed in the evidence/strategy stage) must still appear with
+    ``cv_id`` null rather than vanish from the list. ``tailored_cvs.tailoring_run_id``
+    is unique, so this cannot fan out the way the top-matches latest-run subquery
+    had to guard against.
+    """
+    return (
+        select(*_TAILORING_RUN_COLUMNS)
+        .join(Job, Job.id == TailoringRun.job_id)
+        .join(Company, Company.id == Job.company_id)
+        .outerjoin(TailoredCV, TailoredCV.tailoring_run_id == TailoringRun.id)
+        .where(TailoringRun.user_id == user_id)
+        # id breaks ties so paging stays stable when two runs share a created_at,
+        # which is reachable since the column defaults to now() per statement.
+        .order_by(TailoringRun.created_at.desc(), TailoringRun.id.desc())
+    )
+
+
+async def count_tailoring_runs(db: AsyncSession, user_id: int) -> int:
+    """Total runs for the user, so ``count`` outlives the current page."""
+    return (
+        await db.scalar(
+            select(func.count())
+            .select_from(TailoringRun)
+            .where(TailoringRun.user_id == user_id)
+        )
+    ) or 0
+
+
+async def get_tailoring_runs(
+    db: AsyncSession,
+    user_id: int,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[Any]:
+    result = await db.execute(
+        _tailoring_runs_stmt(user_id).limit(limit).offset(offset)
+    )
+    return result.all()
+
+
+async def get_current_completed_cv_id(db: AsyncSession, user_id: int) -> UUID | None:
+    """Id of the current *completed* CV version, or None.
+
+    Deliberately narrower than :func:`get_current_version`: skill-gap detection
+    compares a job's skills against ``cv_skills``, and a version that is still
+    parsing has only partially populated that table. Treating its missing entries
+    as gaps would report every skill the user does have.
+    """
+    return await db.scalar(
+        select(MasterCVVersion.id)
+        .join(MasterCV, MasterCV.id == MasterCVVersion.master_cv_id)
+        .where(
+            MasterCV.user_id == user_id,
+            MasterCVVersion.is_current.is_(True),
+            MasterCVVersion.status == CVStatus.COMPLETED.value,
+        )
+    )
+
+
+def _missing_skills_stmt(user_id: int, cv_id: UUID) -> Select[tuple[Any, ...]]:
+    """Skills the user's matched jobs require that their CV does not list.
+
+    Scoped to the user's *matched* jobs rather than every job in the table, since
+    the insight is about gaps in the applications they are actually pursuing.
+    The subquery cannot fan out: it only filters ``job_skills`` rows, and the
+    outer query groups by skill.
+    """
+    return (
+        select(
+            Skill.name.label("skill"),
+            func.count(distinct(JobSkill.job_id)).label("job_count"),
+            Skill.category.label("category"),
+        )
+        .join(Skill, Skill.id == JobSkill.skill_id)
+        .where(
+            JobSkill.job_id.in_(
+                select(JobMatch.job_id).where(JobMatch.user_id == user_id)
+            ),
+            ~JobSkill.skill_id.in_(select(CVSkill.skill_id).where(CVSkill.cv_id == cv_id)),
+        )
+        .group_by(Skill.id, Skill.name, Skill.category)
+        # name breaks ties so equal counts come back in a stable order.
+        .order_by(func.count(distinct(JobSkill.job_id)).desc(), Skill.name.asc())
+    )
+
+
+async def get_missing_skills(
+    db: AsyncSession, user_id: int, cv_id: UUID, limit: int = 10
+) -> list[Any]:
+    """Highest-impact skill gaps, most widely required first."""
+    result = await db.execute(_missing_skills_stmt(user_id, cv_id).limit(limit))
+    return result.all()
+
+
+def _score_trend_stmt(user_id: int, since: datetime) -> Select[tuple[Any, ...]]:
+    """Weekly average match score since ``since``.
+
+    The bucket expression is a ``literal_column`` rather than
+    ``func.date_trunc('week', ...)`` on purpose. ``func.date_trunc`` binds the
+    ``'week'`` argument as a *parameter*, and Postgres matches GROUP BY against
+    the select list by comparing expression trees — a parameter there is not the
+    same expression as the one in the select list, so the query fails with
+    "column must appear in the GROUP BY clause". Inlining the text makes all
+    three occurrences identical.
+
+    ``date_trunc('week', ...)`` buckets Monday-aligned in the server's time zone.
+    The cutoff is passed in as a naive datetime rather than computed with
+    ``now()`` because ``job_matches.matched_at`` is ``timestamp without time
+    zone``: binding naive-to-naive avoids a timestamptz cast that would silently
+    shift the boundary if the database session time zone were ever not UTC.
+    """
+    week = _WEEK_BUCKET
+    return (
+        select(
+            week.label("week"),
+            func.avg(JobMatch.final_score).label("avg_score"),
+        )
+        .where(JobMatch.user_id == user_id, JobMatch.matched_at >= since)
+        .group_by(week)
+        .order_by(week.asc())
+    )
+
+
+async def get_score_trend(
+    db: AsyncSession, user_id: int, since: datetime
+) -> list[Any]:
+    """Weekly average match score. Weeks with no matches are absent, not null."""
+    result = await db.execute(_score_trend_stmt(user_id, since))
     return result.all()

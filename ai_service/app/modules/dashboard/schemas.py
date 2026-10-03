@@ -298,3 +298,133 @@ class TopMatchListOut(BaseModel):
 
     count: int
     results: list[TopMatchResult] = Field(default_factory=list)
+
+
+class TailoringStageLabel(str, enum.Enum):
+    """Display name for a pipeline stage.
+
+    Presentation aliases, not stored values: the ``tailoring_stage`` enum holds
+    ``evidence_match``/``strategy``/``write``, which read as internal identifiers
+    rather than as pipeline steps. The API returns the label so the client renders
+    the step without carrying its own mapping table.
+    """
+
+    evidence_matcher = "evidence_matcher"
+    strategist = "strategist"
+    writer = "writer"
+    critic = "critic"
+
+
+class TailoringRunItem(BaseModel):
+    """One row of the tailoring-runs table.
+
+    Run-centric rather than CV-centric: a run exists from the moment tailoring is
+    queued, so rows for runs that have not produced a CV yet (still queued, or
+    failed before the draft) are included with ``cv_id`` null. That is the
+    difference from ``GET /tailored-cvs``, which is keyed off ``tailored_cvs`` and
+    therefore cannot show a run that has no CV at all.
+    """
+
+    id: UUID
+    job_title: str
+    company_name: str = Field(
+        description="Company display_name, falling back to normalized_name"
+    )
+    status: TailoredCVProgress = Field(
+        description=(
+            "Run outcome, reusing TailoredCVProgress so this table and the "
+            "top-matches table speak one vocabulary. pending/processing collapse "
+            "to in_progress; the ``none`` member is unreachable here because "
+            "every row is an existing run."
+        )
+    )
+    current_stage: TailoringStageLabel = Field(
+        description=(
+            "Pipeline step the run has reached. Never null: tailoring_runs.stage "
+            "is NOT NULL with default evidence_match, so even a freshly queued "
+            "run reports the first step rather than nothing."
+        )
+    )
+    created_at: datetime
+    updated_at: datetime = Field(
+        description=(
+            "Last write to the run row. Advances on each stage transition, so it "
+            "is the column to sort by for a 'recently active' list."
+        )
+    )
+    error_message: str | None = Field(
+        default=None,
+        description=(
+            "Failure detail, verbatim and untruncated. Critic failures store the "
+            "whole verdict here, so this field can be several KB."
+        ),
+    )
+    cv_id: UUID | None = Field(
+        default=None,
+        description=(
+            "tailored_cvs.id for this run, or null while the run has not produced "
+            "one. Unique per run, so at most one."
+        ),
+    )
+
+
+class TailoringRunListOut(BaseModel):
+    """``{count, results}`` page envelope, matching ``GET /dashboard/top-matches``."""
+
+    count: int
+    results: list[TailoringRunItem] = Field(default_factory=list)
+
+
+class InsightSkillGap(BaseModel):
+    """A skill the user's jobs want and their CV does not list.
+
+    ``count`` is how many of the user's matched jobs require it, so a high count
+    means the gap is worth closing across many applications rather than one.
+    """
+
+    skill: str
+    count: int = Field(
+        description="Number of the user's matched jobs that require this skill"
+    )
+    category: str | None = Field(
+        default=None,
+        description=(
+            "Grouping taxonomy from skills.category. Null for every skill today: "
+            "the column exists but has never been backfilled, so this is expected "
+            "rather than a bug."
+        ),
+    )
+
+
+class ScoreTrendPoint(BaseModel):
+    """One week's average match score.
+
+    Weeks with no matches are omitted rather than sent as null, so the series
+    only contains points the client can actually plot.
+    """
+
+    date: str = Field(
+        description=(
+            "Week start (Monday), formatted '%b %-d' — e.g. 'Sep 22'. A label "
+            "rather than an ISO date, matching the chart's axis."
+        )
+    )
+    score: float = Field(
+        description=(
+            "Mean job_matches.final_score for matches created in that week. "
+            "Carries the known 0-1 vs 0-100 scoring-scale inconsistency, so this "
+            "may exceed 1."
+        )
+    )
+
+
+class InsightResponse(BaseModel):
+    """The dashboard's insights section.
+
+    Always 200 and always both keys present. An account with no current CV or no
+    matches gets two empty lists rather than nulls, so the client can bind to the
+    shape without existence checks.
+    """
+
+    missing_skills: list[InsightSkillGap] = Field(default_factory=list)
+    score_trend: list[ScoreTrendPoint] = Field(default_factory=list)

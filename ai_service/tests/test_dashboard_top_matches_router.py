@@ -209,12 +209,12 @@ async def test_top_matches_passes_paging_and_filter_through(client, monkeypatch)
     _stub_repository(monkeypatch, count=30, rows=[], record=record)
 
     response = await client.get(
-        "/api/ai/v1/dashboard/top-matches?limit=5&offset=10&min_score=4.5",
+        "/api/ai/v1/dashboard/top-matches?limit=3&offset=10&min_score=4.5",
         headers=GATEWAY_HEADERS,
     )
 
     assert response.status_code == 200
-    assert record == {"min_score": 4.5, "limit": 5, "offset": 10}
+    assert record == {"min_score": 4.5, "limit": 3, "offset": 10}
 
 
 async def test_top_matches_sends_no_min_score_by_default(client, monkeypatch):
@@ -230,11 +230,11 @@ async def test_top_matches_sends_no_min_score_by_default(client, monkeypatch):
 
     assert response.status_code == 200
     assert record["min_score"] is None
-    assert (record["limit"], record["offset"]) == (20, 0)
+    assert (record["limit"], record["offset"]) == (3, 0)
 
 
 @pytest.mark.parametrize(
-    "query", ["limit=0", "limit=101", "offset=-1", "min_score=-0.5"]
+    "query", ["limit=0", "limit=4", "offset=-1", "min_score=-0.5"]
 )
 async def test_top_matches_rejects_out_of_range_params(client, monkeypatch, query):
     _override_user()

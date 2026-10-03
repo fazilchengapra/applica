@@ -55,6 +55,30 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   subquery rather than a join, because `tailoring_runs` is unique per
   `(user_id, job_id, cv_version_id)` and a join would duplicate a match once a
   user re-tailors against a newer master CV.
+- `ai_service` tailoring-runs table (`GET /api/ai/v1/dashboard/tailoring-runs`): a
+  paginated, newest-first list of the user's tailoring runs with `job_title`,
+  `company_name`, `status`, `current_stage`, `created_at`/`updated_at`,
+  `error_message` and `cv_id`, sharing the `{count, results}` envelope of
+  `/dashboard/top-matches`. Run-centric rather than CV-centric, so runs that are
+  still queued — or that failed before the draft — are listed with `cv_id` null;
+  `tailored_cvs` is joined with a `LEFT OUTER JOIN` for exactly that reason, and
+  `GET /tailored-cvs` cannot show them because it is keyed off `tailored_cvs`.
+  `status` collapses stored `pending`/`processing` to `in_progress`, reusing the
+  `TailoredCVProgress` enum so both dashboard tables share one vocabulary, and
+  `current_stage` returns display labels (`evidence_matcher`, `strategist`,
+  `writer`, `critic`) rather than the stored `evidence_match`/`strategy`/`write`.
+- `ai_service` dashboard insights (`GET /api/ai/v1/dashboard/insights`):
+  `missing_skills` (skills the user's matched jobs require that their current CV
+  does not list, each with the number of jobs wanting it, most wanted first) and
+  `score_trend` (weekly mean `job_matches.final_score` over a `weeks`-bounded
+  window, Monday-aligned, labelled `'Mon D'`). Gaps require a current *completed*
+  CV to diff against — a version still parsing has an incomplete `cv_skills` list
+  and would report every skill the user has as missing — so the section is empty
+  without one, while the trend still reports. Weeks with no matches are omitted
+  rather than emitted as nulls. Backed by migration `b8e4f10c6d92`, which adds a
+  nullable `skills.category`; it is **null for every row** because no skill
+  taxonomy exists in the codebase to backfill it from, and keyword-matching names
+  into invented categories would put unverifiable labels in user-facing output.
 - Shared `get_user_roles` helper (`user_service`), replacing the role list that
   was duplicated in email login and Google OAuth.
 

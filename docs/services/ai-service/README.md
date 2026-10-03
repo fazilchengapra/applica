@@ -35,7 +35,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
-| `dashboard.py` | `/dashboard`, `/dashboard/stats`, `/dashboard/top-matches` | `X-User-Id` | `/dashboard`: single aggregate — CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed. `/dashboard/stats`: flat headline counters only. `/dashboard/top-matches`: paginated top-matches table with score breakdown + tailoring progress |
+| `dashboard.py` | `/dashboard`, `/dashboard/stats`, `/dashboard/top-matches`, `/dashboard/tailoring-runs`, `/dashboard/insights` | `X-User-Id` | `/dashboard`: single aggregate — CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed. `/dashboard/stats`: flat headline counters only. `/dashboard/top-matches`: paginated top-matches table with score breakdown + tailoring progress. `/dashboard/tailoring-runs`: paginated tailoring-runs table with stage labels and `cv_id`. `/dashboard/insights`: skill gaps + weekly score trend |
 | `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts (from user_service) + unread count (from notification_service) composed with the CV onboarding step (local) |
 
 ### Dashboard endpoint
@@ -150,6 +150,118 @@ asserts this on the generated SQL, since the response cannot show it.
 Mapping is lossy in one direction only: `pending` and `processing` both render as
 `in_progress`, because the column shows step count rather than pipeline stage. The
 other three pass through, and a job with no run at all is `none`.
+
+### Tailoring runs endpoint
+
+`GET /api/ai/v1/dashboard/tailoring-runs` backs the dashboard's tailoring section:
+the user's tailoring runs, newest first. Always `200`; an account that has never
+tailored anything gets `{"count": 0, "results": []}`.
+
+| Param | Default | Range |
+|---|---|---|
+| `limit` | `20` | `1..100` |
+| `offset` | `0` | `>= 0` |
+
+Unlike `/dashboard/top-matches` (a top-N widget capped at 3), this is a table, so
+it pages normally.
+
+| Field | Notes |
+|---|---|
+| `count` | Total runs, not the page length |
+| `id` | `tailoring_runs.id` (a UUID) |
+| `status` | Run outcome: `in_progress` (stored `pending` or `processing`), `completed` or `failed`. Reuses the `TailoredCVProgress` enum so this table and top-matches share one vocabulary |
+| `current_stage` | Display **label**: `evidence_matcher`, `strategist`, `writer` or `critic`. Never null |
+| `error_message` | Verbatim and untruncated |
+| `cv_id` | `tailored_cvs.id`, or null while the run has not produced one |
+| `company_name` | `companies.display_name`, falling back to `normalized_name` |
+
+Two deliberate departures from the stored values, both because the stored values
+read as implementation identifiers:
+
+- **`current_stage` is a label, not the enum.** `tailoring_runs.stage` holds
+  `evidence_match`/`strategy`/`write`; the response returns
+  `evidence_matcher`/`strategist`/`writer` so the client needs no mapping table.
+  The map is `_STAGE_TO_LABEL` in `dashboard_service.py` and
+  `test_stage_labels_cover_every_stage` fails if a stage is added without one.
+  `current_stage` is also non-nullable in the response: the column is `NOT NULL`
+  with default `evidence_match`, so even a freshly queued run reports the first
+  step rather than nothing.
+- **`status` collapses the early pipeline.** Stored `pending` and `processing`
+  both render as `in_progress`, matching what `GET /dashboard/top-matches` reports
+  for the same run.
+
+`cv_id` is why this endpoint is run-centric rather than CV-centric. A run exists
+from the moment tailoring is queued, so runs still queued — or failed before the
+draft — have no `tailored_cvs` row and **must** appear with `cv_id` null. The
+`tailored_cvs` join is therefore a `LEFT OUTER JOIN`; an inner join would drop
+exactly the runs a user most wants to see. `GET /tailored-cvs` is keyed off
+`tailored_cvs` and cannot show them at all.
+`test_tailoring_runs_outer_joins_tailored_cvs` asserts this on the generated SQL,
+because the surviving rows look identical either way.
+
+Ordering is `created_at DESC, id DESC`. The `id` tie-breaker matters because
+`created_at` defaults to `now()` per statement, so two runs queued in one
+transaction share a timestamp and would otherwise be able to repeat or drop
+across a page boundary.
+
+### Insights endpoint
+
+`GET /api/ai/v1/dashboard/insights` backs the dashboard's insights section: which
+skills the user's applications want that their CV does not list, and whether
+their match scores are improving. Always `200`, and both keys are always present
+— an account with no CV or no matches gets two empty lists rather than nulls.
+
+| Param | Default | Range | Notes |
+|---|---|---|---|
+| `weeks` | `8` | `1..52` | How far back `score_trend` reaches |
+| `limit` | `10` | `1..50` | Maximum `missing_skills` returned |
+
+| Field | Notes |
+|---|---|
+| `missing_skills[].skill` | `skills.name` |
+| `missing_skills[].count` | How many of the user's **matched** jobs require it, so a high count means the gap is worth closing across many applications |
+| `missing_skills[].category` | From `skills.category`. **Always null today** — see below |
+| `score_trend[].date` | Week start (Monday), formatted `'%b %-d'` — e.g. `Oct 6`. A label, not an ISO date, to match the chart axis |
+| `score_trend[].score` | Mean `job_matches.final_score` for that week. Carries the same 0–1 vs 0–100 scale inconsistency as `matches.top`, so a point may exceed 1 |
+
+`missing_skills` is computed as `job_skills` for the user's *matched* jobs minus
+the skills on their current CV — not every ingested job, since the insight is
+about the applications they are actually pursuing.
+
+**`category` is null for every skill.** Migration `b8e4f10c6d92` adds a nullable
+`skills.category` so the contract is stable, but there is no taxonomy anywhere in
+the codebase to backfill it from, and keyword-matching skill names into invented
+categories would put unverifiable labels in user-facing output. Backfill it from a
+curated source when one exists.
+
+Two behaviours worth knowing:
+
+- **No completed CV means no skill gaps.** The comparison needs a current
+  *completed* CV version. A version still parsing has a partially populated
+  `cv_skills` table, so every skill the user *does* have would look like a gap.
+  `get_current_completed_cv_id` therefore filters on both `is_current` and
+  `status = completed`, and the service skips the query entirely when there is
+  none. `score_trend` is unaffected and still reports.
+- **Weeks with no matches are omitted, not sent as null.** A chart can therefore
+  plot every point it receives, but it cannot infer gaps from the spacing — if it
+  needs to show that a week was empty, the client must detect the jump.
+
+The trend cutoff is computed in Python as a **naive** UTC datetime and bound
+naive-to-naive, because `job_matches.matched_at` is `timestamp without time zone`
+— passing a tz-aware value would be cast to `timestamptz` and shift the window
+boundary by the session offset.
+
+Ordering for `missing_skills` is `count DESC, name ASC` for a deterministic page.
+Note the `name` tie-break resolves under the *database* collation (case-insensitive
+in this deployment), so `integration solution` sorts before `Java` — unlike Python's
+byte ordering.
+
+The week bucket is a raw `literal_column`, not `func.date_trunc`. `func.date_trunc`
+binds its `'week'` argument as a parameter, and Postgres matches GROUP BY against
+the select list by comparing expression trees — a parameter there is not the same
+expression, so the query fails with *"column must appear in the GROUP BY clause"*.
+Inlining the text makes all three occurrences (select/group/order) identical;
+`test_score_trend_inlines_the_week_bucket` guards it.
 
 ### Home endpoint
 

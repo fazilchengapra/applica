@@ -8,11 +8,15 @@ from app.db.session import get_db
 from app.modules.dashboard.schemas import (
     DashboardResponse,
     DashboardStatsResponse,
+    InsightResponse,
+    TailoringRunListOut,
     TopMatchListOut,
 )
 from app.modules.dashboard.services.dashboard_service import (
     build_dashboard,
     build_dashboard_stats,
+    build_insights,
+    build_tailoring_runs,
     build_top_matches,
 )
 
@@ -83,3 +87,65 @@ async def get_top_matches(
     Always 200; an account with no matches gets ``count`` 0 and no results.
     """
     return await build_top_matches(db, user_id, min_score=min_score, limit=limit, offset=offset)
+
+
+@router.get("/tailoring-runs", response_model=TailoringRunListOut)
+async def get_tailoring_runs(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """The user's tailoring runs, newest first, as a paginated table.
+
+    Run-centric, so it also shows runs that have not produced a tailored CV yet —
+    a queued run, or one that failed before the draft — with ``cv_id`` null.
+    ``GET /tailored-cvs`` cannot show those, because it is keyed off
+    ``tailored_cvs``.
+
+    ``status`` is a presentation value: stored ``pending``/``processing`` both
+    report as ``in_progress``. ``current_stage`` is a display label rather than
+    the stored enum, and is never null.
+
+    ``count`` is the total number of runs, not the length of this page. Always
+    200; an account that has never tailored anything gets ``count`` 0 and no
+    results.
+    """
+    return await build_tailoring_runs(db, user_id, limit=limit, offset=offset)
+
+
+@router.get("/insights", response_model=InsightResponse)
+async def get_insights(
+    weeks: int = Query(
+        8,
+        ge=1,
+        le=52,
+        description="How many weeks back the score trend reaches.",
+    ),
+    limit: int = Query(
+        10,
+        ge=1,
+        le=50,
+        description="Maximum number of missing skills to return.",
+    ),
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Skill gaps and the match-score trend, for the dashboard insights section.
+
+    ``missing_skills`` are skills the user's matched jobs require that their
+    current CV does not list, most widely required first; ``count`` is how many
+    of those jobs want it. ``category`` comes from ``skills.category`` and is
+    null until that taxonomy is backfilled.
+
+    Empty when the user has no current *completed* CV: a version still parsing has
+    an incomplete skill list, so every skill would look like a gap.
+
+    ``score_trend`` is the weekly mean ``final_score`` over the last ``weeks``
+    weeks, Monday-aligned, labelled ``'Mon D'``. Weeks with no matches are
+    omitted rather than sent as null. Scores carry the known 0-1 vs 0-100 scale
+    inconsistency, so a point may exceed 1.
+
+    Always 200; an account with no matches gets two empty lists.
+    """
+    return await build_insights(db, user_id, weeks=weeks, limit=limit)

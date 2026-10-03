@@ -18,6 +18,14 @@ class Skill(Base):
     )
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     normalized_name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    category: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        comment=(
+            "Optional grouping taxonomy (e.g. Infrastructure, API, DevOps). Null "
+            "for every row until a curated backfill runs."
+        ),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -5,7 +5,7 @@ row-to-schema mapping (and the zeroing rules for an empty account) lives in one
 reviewable place.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,20 +25,26 @@ from app.modules.dashboard.schemas import (
     DashboardTailoredCVCounts,
     DashboardTailoredCVs,
     DashboardVersionItem,
+    InsightResponse,
+    InsightSkillGap,
     JobMatchCard,
     MasterCVState,
     MatchCardCompany,
     MatchCardJob,
     MatchStatusBreakdown,
+    ScoreTrendPoint,
     TailoredCVDashboardCard,
     TailoredCVProgress,
+    TailoringRunItem,
+    TailoringRunListOut,
+    TailoringStageLabel,
     TopMatchListOut,
     TopMatchResult,
 )
 from app.modules.master_cv.models import CVStatus, MasterCVVersion
 from app.modules.master_cv.repository import get_cv_status_counts
 from app.modules.matching.models.job_match import MatchStatus
-from app.modules.tailoring.models import TailoringRunStatus
+from app.modules.tailoring.models import TailoringRunStatus, TailoringStage
 from app.modules.tailoring.schemas import (
     TailoredCVTemplateOut,
     TailoringRunOut,
@@ -342,3 +348,91 @@ async def build_top_matches(
     return TopMatchListOut(
         count=count, results=[_to_top_match_result(row) for row in rows]
     )
+
+
+# Stored stage -> the label the table renders. Maps every member of
+# TailoringStage; test_stage_labels_cover_every_stage fails if one is added.
+_STAGE_TO_LABEL = {
+    TailoringStage.evidence_match: TailoringStageLabel.evidence_matcher,
+    TailoringStage.strategy: TailoringStageLabel.strategist,
+    TailoringStage.write: TailoringStageLabel.writer,
+    TailoringStage.critic: TailoringStageLabel.critic,
+}
+
+
+def _to_tailoring_run_item(row) -> TailoringRunItem:
+    # Both maps are indexed rather than .get() with a default: every row is a real
+    # run, so there is no honest fallback for an unmapped status or stage. A new
+    # enum member should fail the coverage tests rather than be silently rendered
+    # as a plausible-looking wrong value.
+    return TailoringRunItem(
+        id=row.id,
+        job_title=row.job_title,
+        company_name=row.company_display_name or row.company_normalized_name,
+        status=_RUN_STATUS_TO_PROGRESS[row.run_status],
+        current_stage=_STAGE_TO_LABEL[row.run_stage],
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        error_message=row.error_message,
+        cv_id=row.tailored_cv_id,
+    )
+
+
+async def build_tailoring_runs(
+    db: AsyncSession,
+    user_id: int,
+    limit: int = 20,
+    offset: int = 0,
+) -> TailoringRunListOut:
+    """One page of the tailoring-runs table.
+
+    ``count`` is the total number of runs, fetched separately from the page.
+    Sequential awaits, for the shared-AsyncSession reason documented on
+    :func:`build_dashboard`.
+    """
+    count = await repository.count_tailoring_runs(db, user_id)
+    rows = await repository.get_tailoring_runs(db, user_id, limit=limit, offset=offset)
+    return TailoringRunListOut(
+        count=count, results=[_to_tailoring_run_item(row) for row in rows]
+    )
+
+
+async def build_insights(
+    db: AsyncSession,
+    user_id: int,
+    weeks: int = 8,
+    limit: int = 10,
+) -> InsightResponse:
+    """Skill gaps and the match-score trend for the insights section.
+
+    Skill gaps need a current *completed* CV to diff against. Without one the
+    comparison is meaningless — a version still parsing would report every skill
+    the user has as a gap, and a user with no CV at all would be told they are
+    missing everything — so the list comes back empty instead of misleading.
+
+    ``weeks`` bounds the trend window; empty weeks inside it are omitted by the
+    query rather than emitted as nulls. Sequential awaits, for the
+    shared-AsyncSession reason documented on :func:`build_dashboard`.
+    """
+    # Naive UTC: job_matches.matched_at is timestamp without time zone, and the
+    # repository binds it naive-to-naive to avoid an implicit cast.
+    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(weeks=weeks)
+
+    trend_rows = await repository.get_score_trend(db, user_id, since)
+    score_trend = [
+        ScoreTrendPoint(date=row.week.strftime("%b %-d"), score=float(row.avg_score))
+        for row in trend_rows
+    ]
+
+    missing_skills: list[InsightSkillGap] = []
+    cv_id = await repository.get_current_completed_cv_id(db, user_id)
+    if cv_id is not None:
+        gap_rows = await repository.get_missing_skills(db, user_id, cv_id, limit=limit)
+        missing_skills = [
+            InsightSkillGap(
+                skill=row.skill, count=int(row.job_count), category=row.category
+            )
+            for row in gap_rows
+        ]
+
+    return InsightResponse(missing_skills=missing_skills, score_trend=score_trend)
