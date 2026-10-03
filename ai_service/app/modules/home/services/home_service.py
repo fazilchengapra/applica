@@ -61,7 +61,6 @@ def _build_onboarding(account_steps: AccountStepFlags, has_cv: bool) -> HomeOnbo
 
 async def build_home(db: AsyncSession, user_id: int) -> HomeResponse:
     """Full home aggregate for one user.
-
     Fails loudly if either upstream is unavailable rather than rendering a
     half-empty home page: the account sections are the point of the endpoint,
     and a silently blank profile is worse for the user than a visible error.

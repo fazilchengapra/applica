@@ -35,7 +35,7 @@ user-scoped endpoints additionally read `X-User-Id` (injected by Kong).
 | `admin_master_cv.py` | `/admin/users` | `X-Admin-Authorized` | Admin: user master-CV details |
 | `admin_jobs.py` | `/admin/jobs` | `X-Admin-Authorized` | Admin: queue external job fetches |
 | `tailoring_cv.py` | `/tailored-cvs` | `X-User-Id` | List tailored CVs (filter/paginate), get one (ownership-enforced), trigger tailoring (idempotent), trigger render |
-| `dashboard.py` | `/dashboard` | `X-User-Id` | Single aggregate: CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed |
+| `dashboard.py` | `/dashboard`, `/dashboard/stats` | `X-User-Id` | `/dashboard`: single aggregate — CV state/versions/stats/profile, match counts + top cards, tailored-CV counts + cards, cross-source activity feed. `/dashboard/stats`: flat headline counters only |
 | `home.py` | `/home` | `X-User-Id` | BFF aggregate for the home screen: account + profile + roles + linked accounts (from user_service) + unread count (from notification_service) composed with the CV onboarding step (local) |
 
 ### Dashboard endpoint
@@ -66,6 +66,48 @@ is documented as 0–1 (`MatchEvaluation.relevance_score`) and validated as such
 0.5 dashboard threshold does not exclude anything and scores render as e.g.
 `75.0`. Fixing this properly means constraining the evaluation prompt and
 backfilling the column, which is tracked separately.
+
+### Dashboard stats endpoint
+
+`GET /api/ai/v1/dashboard/stats` is the cheap sibling of `/dashboard`: three
+aggregates, no cards and no activity feed, so a client can poll the stat tiles
+without re-fetching the whole aggregate. Always `200`, and zeroed rather than
+null — an account with no matches gets `average_final_score` of `0.0` (SQL
+`AVG` over no rows is `NULL`, which the repository converts).
+
+| Field | Notes |
+|---|---|
+| `match_status_breakdown` | Five pipeline buckets plus `total`, from one conditional aggregate |
+| `average_final_score` | `AVG(final_score)` over all of the user's matches, rounded to 1dp. Carries the same 0–1 vs 0–100 scale inconsistency as `matches.top`, so it can exceed 1 |
+| `top_n` | Echo of the requested page size (default 10, `1..100`). Sizes no query here — it tells the client what to pass when it fetches the cards from `/dashboard` |
+| `tailored_cvs_completed` | `render_status = completed`, i.e. the PDF finished |
+| `tailored_cvs_in_progress` | `render_status` `pending` or `processing`. Reuses the `get_tailored_cv_counts` aggregate rather than adding a third variant of that query |
+
+The buckets are a **rollup of `MatchStatus`, not the raw enum.** The coarse
+pre-pipeline statuses fold into the bucket that supersedes them:
+
+| Bucket | Stored statuses |
+|---|---|
+| `new` | `NEW`, `VIEWED` |
+| `shortlisted` | `SAVED`, `SHORTLISTED` |
+| `applied` | `APPLIED` |
+| `interviewing` | `INTERVIEWING` |
+| `rejected` | `DISMISSED`, `REJECTED` |
+
+Every `MatchStatus` member appears in exactly one bucket, so the five counts
+always sum to `total` — no row is double-counted or dropped. The map lives in
+[`repository.py`](../../../ai_service/app/modules/dashboard/repository.py) as
+`_MATCH_PIPELINE_BUCKETS` and holds enum *members*, not strings: the column is an
+`SAEnum` keyed on the member **name**, so the stored labels are uppercase
+(`NEW`, `SHORTLISTED`) while the values are lowercase. `test_pipeline_buckets_partition_match_status`
+fails if a new enum member is added without a bucket.
+
+`SHORTLISTED`, `INTERVIEWING` and `REJECTED` were added to the enum by migration
+`c3d7e91a4b28` (`ALTER TYPE ... ADD VALUE`, so the `downgrade()` is a no-op —
+Postgres cannot safely drop a label that rows hold). Adding them automatically
+widens `PATCH /job-matches/{id}/status` and `GET /job-matches?status=`, since both
+validate against the enum. No backfill: pre-existing rows keep their status and
+are counted through the fold above.
 
 ### Home endpoint
 
@@ -104,7 +146,7 @@ after an upload instead of guessing from `/master-cv/stats`.
 ## Data model (PostgreSQL 16 + pgvector)
 
 Tables live under `app/modules/*/models/` (async SQLAlchemy), migrated by
-Alembic (31 revisions, head `b8e4f2a6c9d0`):
+Alembic (35 revisions, head `c3d7e91a4b28`):
 
 - **Master CV:** `master_cvs`, `master_cv_versions` (one current version per CV,
   partial unique index), `cv_skills`

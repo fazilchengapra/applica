@@ -18,7 +18,7 @@ from app.modules.jobs.models.jobs import Job
 from app.modules.jobs.models.skills import Skill
 from app.modules.master_cv.models import MasterCV, MasterCVVersion
 from app.modules.master_cv.models.cv_skills import CVSkill
-from app.modules.matching.models.job_match import JobMatch
+from app.modules.matching.models.job_match import JobMatch, MatchStatus
 from app.modules.tailoring.models import TailoredCV, TailoringRun
 
 _RENDER_NOT_DONE = ("pending", "processing")
@@ -66,9 +66,7 @@ _TAILORED_CARD_COLUMNS = (
 )
 
 
-async def get_current_version(
-    db: AsyncSession, user_id: int
-) -> MasterCVVersion | None:
+async def get_current_version(db: AsyncSession, user_id: int) -> MasterCVVersion | None:
     """The single ``is_current`` version, or None when the user has no master CV.
 
     Joined through ``master_cvs`` so no separate id lookup is needed. Returns
@@ -128,9 +126,74 @@ async def get_match_counts(db: AsyncSession, user_id: int) -> dict[str, int]:
         .where(JobMatch.user_id == user_id)
         .group_by(JobMatch.status)
     )
-    counts = {status.value if hasattr(status, "value") else str(status): n for status, n in result.all()}
+    counts = {
+        status.value if hasattr(status, "value") else str(status): n
+        for status, n in result.all()
+    }
     counts["total"] = sum(counts.values())
     return counts
+
+
+# Stored status -> pipeline bucket shown on the dashboard. The buckets partition
+# ``MatchStatus``: every member appears exactly once, so the five counts always
+# sum to the total. The coarse pre-pipeline statuses fold into the bucket that
+# supersedes them (``VIEWED`` is still unactioned, ``SAVED`` is a shortlist,
+# ``DISMISSED`` is a rejection), which is why this exists instead of grouping by
+# the raw status. Values are enum *members*, not strings: ``MatchStatus`` names
+# are uppercase and values lowercase, and the column is an SAEnum keyed on the
+# name, so a lowercase string would not match the stored labels.
+_MATCH_PIPELINE_BUCKETS: dict[str, tuple[MatchStatus, ...]] = {
+    "new": (MatchStatus.NEW, MatchStatus.VIEWED),
+    "shortlisted": (MatchStatus.SAVED, MatchStatus.SHORTLISTED),
+    "applied": (MatchStatus.APPLIED,),
+    "interviewing": (MatchStatus.INTERVIEWING,),
+    "rejected": (MatchStatus.DISMISSED, MatchStatus.REJECTED),
+}
+
+
+async def get_match_pipeline_counts(db: AsyncSession, user_id: int) -> dict[str, int]:
+    """Match counts per pipeline bucket plus the unfiltered total.
+
+    One conditional aggregate rather than a ``GROUP BY`` so empty buckets come
+    back as a real ``0`` instead of a missing key — the caller splats the dict
+    straight into the schema.
+
+    CASE (not ``count(col.in_(...))``): a boolean comparison yields FALSE rather
+    than NULL for non-matching rows, so count() would tally every row into every
+    bucket. CASE yields NULL, which count() skips. Same pattern as
+    ``get_tailored_cv_counts``.
+    """
+    result = await db.execute(
+        select(
+            func.count().label("total"),
+            *[
+                func.count(case((JobMatch.status.in_(statuses), 1))).label(bucket)
+                for bucket, statuses in _MATCH_PIPELINE_BUCKETS.items()
+            ],
+        ).where(JobMatch.user_id == user_id)
+    )
+    row = result.one()
+    counts = {bucket: row._mapping[bucket] for bucket in _MATCH_PIPELINE_BUCKETS}
+    counts["total"] = row.total
+    return counts
+
+
+async def get_average_final_score(db: AsyncSession, user_id: int) -> float:
+    """Mean ``final_score`` across all of the user's matches, 0.0 when there are none.
+
+    ``AVG`` over an empty set is NULL, which would serialise as ``null`` and
+    leave the client null-checking a tile; 0.0 keeps the stat tile plain.
+
+    Rounded to 1dp here rather than in the schema so the stored float keeps full
+    precision for anything that needs it. Note the scale is inconsistent — the
+    column is documented as 0-1 but the LLM writes 0-100 — so the mean can
+    exceed 1.
+    """
+    result = await db.execute(
+        select(func.avg(JobMatch.final_score)).where(JobMatch.user_id == user_id)
+    )
+    average = result.scalar_one()
+    return round(float(average), 1) if average is not None else 0.0
 
 
 async def get_top_match_cards(
@@ -156,16 +219,14 @@ async def get_tailored_cv_counts(db: AsyncSession, user_id: int) -> dict[str, in
     result = await db.execute(
         select(
             func.count().label("total"),
-            func.count(
-                case((TailoredCV.status == "approved", 1))
-            ).label("approved"),
+            func.count(case((TailoredCV.status == "approved", 1))).label("approved"),
             func.count(case((TailoredCV.status == "failed", 1))).label("failed"),
-            func.count(
-                case((TailoredCV.render_status.in_(_RENDER_NOT_DONE), 1))
-            ).label("rendering"),
-            func.count(
-                case((TailoredCV.render_status == "completed", 1))
-            ).label("rendered"),
+            func.count(case((TailoredCV.render_status.in_(_RENDER_NOT_DONE), 1))).label(
+                "rendering"
+            ),
+            func.count(case((TailoredCV.render_status == "completed", 1))).label(
+                "rendered"
+            ),
         )
         .select_from(TailoredCV)
         .join(TailoringRun, TailoringRun.id == TailoredCV.tailoring_run_id)
@@ -198,25 +259,6 @@ async def get_recent_tailored_cv_cards(
 
 
 def _activity_stmt(user_id: int) -> Select:
-    """Union of the three event sources, newest activity first.
-
-    Timestamps are ``updated_at`` rather than ``created_at``: a run created three
-    weeks ago that is still grinding through the critic must not sort above one
-    created five minutes ago. Render events borrow the owning run's
-    ``updated_at`` because ``tailored_cvs`` has no ``updated_at`` column of its
-    own.
-
-    The three sources disagree on timezone-awareness (``tailoring_runs`` is
-    ``timestamptz``, ``master_cv_versions`` is naive). Postgres resolves the
-    union to ``timestamptz`` by reading the naive values in the session timezone,
-    which is UTC here and is the timezone their ``now()`` defaults were written
-    in — so the ordering stays correct across sources.
-
-    Every status column is cast to text: they are three unrelated Postgres enum
-    types, and a UNION across them has no common type. ``stage`` needs the same
-    treatment because the per-source literals ("render", "parse") are not members
-    of the ``tailoring_stage`` enum the tailoring branch would otherwise force.
-    """
     tailoring_events = select(
         literal("tailoring").label("type"),
         TailoringRun.id.label("run_id"),

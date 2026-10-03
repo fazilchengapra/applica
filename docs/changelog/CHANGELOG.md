@@ -36,6 +36,15 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   new Prisma `Notification` model with a `user_id, read_at, created_at DESC`
   composite index; 43 Vitest integration tests run against the real database.
 - `ai_service` dashboard aggregate (`GET /api/ai/v1/dashboard`).
+- `ai_service` dashboard stat tiles (`GET /api/ai/v1/dashboard/stats`): a flat,
+  cheap read model — `match_status_breakdown` (new/shortlisted/applied/
+  interviewing/rejected plus a total that the five always sum to),
+  `average_final_score`, an echoed `top_n`, and the tailored-CV
+  completed/in-progress render counters. Backed by a new `match_status` enum
+  migration (`c3d7e91a4b28`) adding `SHORTLISTED`, `INTERVIEWING` and
+  `REJECTED`; the pre-existing `VIEWED`/`SAVED`/`DISMISSED` statuses fold into
+  the corresponding buckets rather than being backfilled, and are still
+  accepted by `PATCH /job-matches/{id}/status` and `GET /job-matches?status=`.
 - Shared `get_user_roles` helper (`user_service`), replacing the role list that
   was duplicated in email login and Google OAuth.
 

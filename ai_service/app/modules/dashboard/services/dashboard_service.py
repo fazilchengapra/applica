@@ -21,6 +21,7 @@ from app.modules.dashboard.schemas import (
     DashboardProfile,
     DashboardResponse,
     DashboardSkill,
+    DashboardStatsResponse,
     DashboardTailoredCVCounts,
     DashboardTailoredCVs,
     DashboardVersionItem,
@@ -28,6 +29,7 @@ from app.modules.dashboard.schemas import (
     MasterCVState,
     MatchCardCompany,
     MatchCardJob,
+    MatchStatusBreakdown,
     TailoredCVDashboardCard,
 )
 from app.modules.master_cv.models import CVStatus, MasterCVVersion
@@ -262,4 +264,20 @@ async def build_dashboard(db: AsyncSession, user_id: int) -> DashboardResponse:
         tailored_cvs=await _build_tailored_cvs(db, user_id),
         activity=await _build_activity(db, user_id),
         generated_at=datetime.now(timezone.utc),
+    )
+
+
+async def build_dashboard_stats(
+    db: AsyncSession, user_id: int, top_n: int
+) -> DashboardStatsResponse:
+    match_counts = await repository.get_match_pipeline_counts(db, user_id)
+    average_score = await repository.get_average_final_score(db, user_id)
+    tailored_counts = await repository.get_tailored_cv_counts(db, user_id)
+
+    return DashboardStatsResponse(
+        match_status_breakdown=MatchStatusBreakdown(**match_counts),
+        average_final_score=average_score,
+        top_n=top_n,
+        tailored_cvs_completed=tailored_counts["rendered"],
+        tailored_cvs_in_progress=tailored_counts["rendering"],
     )

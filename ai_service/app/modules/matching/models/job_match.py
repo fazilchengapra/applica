@@ -12,11 +12,15 @@ from app.db.base import Base
 
 
 class MatchStatus(str, enum.Enum):
+
     NEW = "new"
     VIEWED = "viewed"
     SAVED = "saved"
     DISMISSED = "dismissed"
     APPLIED = "applied"
+    SHORTLISTED = "shortlisted"
+    INTERVIEWING = "interviewing"
+    REJECTED = "rejected"
 
 
 class TailoringStatus(str, enum.Enum):

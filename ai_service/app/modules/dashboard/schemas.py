@@ -189,3 +189,42 @@ class DashboardResponse(BaseModel):
     tailored_cvs: DashboardTailoredCVs
     activity: list[DashboardActivityItem] = Field(default_factory=list)
     generated_at: datetime
+
+
+class MatchStatusBreakdown(BaseModel):
+    new: int = 0
+    shortlisted: int = 0
+    applied: int = 0
+    interviewing: int = 0
+    rejected: int = 0
+    total: int = 0
+
+
+class DashboardStatsResponse(BaseModel):
+
+    match_status_breakdown: MatchStatusBreakdown = Field(
+        default_factory=MatchStatusBreakdown
+    )
+    average_final_score: float = Field(
+        default=0.0,
+        description=(
+            "Mean job_matches.final_score across all of the user's matches, "
+            "rounded to 1dp; 0.0 when the user has no matches. Carries the "
+            "known 0-1 vs 0-100 scoring-scale inconsistency, so the value may "
+            "exceed 1."
+        ),
+    )
+    top_n: int = Field(
+        description=(
+            "Echo of the requested top-N page size, so the client knows what to "
+            "ask for when it fetches the match cards from GET /dashboard"
+        )
+    )
+    tailored_cvs_completed: int = Field(
+        default=0,
+        description="Tailored CVs whose PDF render finished (render_status=completed)",
+    )
+    tailored_cvs_in_progress: int = Field(
+        default=0,
+        description="Tailored CVs still rendering (render_status pending or processing)",
+    )
