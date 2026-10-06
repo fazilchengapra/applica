@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from . import (
     admin_jobs,
     admin_master_cv,
+    ats,
     companies,
     cv_template,
     cv_template_public,
@@ -26,3 +27,4 @@ router.include_router(admin_jobs.router)
 router.include_router(tailoring_cv.router)
 router.include_router(dashboard.router)
 router.include_router(home.router)
+router.include_router(ats.router)

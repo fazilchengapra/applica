@@ -5,3 +5,4 @@ from app.modules.matching import models
 from app.modules.companies.models import Company
 from app.modules.cv_template import models
 from app.modules.tailoring import models
+from app.modules.ats.models import ATSReport, RoleVocabulary
