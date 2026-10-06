@@ -41,12 +41,52 @@ model Notification {
   readAt    DateTime? @map("read_at") @db.Timestamptz(6)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  // idx_user_read_created: serves the whole inbox. Filtering on userId alone
-  // (the default list) or on userId + read_at IS NULL (the unread list and the
-  // unread count) walks this index instead of filtering a per-user scan out of
-  // the table, and it carries created_at so the newest-first order is already
-  // in index order.
-  @@index([userId, readAt, createdAt(sort: Desc)], map: "idx_user_read_created")
+  // dedupe_key: the producer's stable identity for the logical event, derived
+  // from the domain object that caused it (a VerificationToken id, for example)
+  // rather than from the notification itself. Null for the many notifications
+  // that are not worth deduplicating.
+  //
+  // Postgres treats NULLs as distinct in a btree unique index, so this plain
+  // UNIQUE already permits any number of rows with a NULL dedupe_key — a
+  // partial index would be smaller but is not representable in the schema.
+  //
+  // Two retry paths converge on this: the producer's HTTP client retrying after
+  // a timeout that followed a committed insert, and BullMQ re-running a job.
+  // Without it, both surface to the user as a duplicate inbox row.
+  dedupeKey String? @map("dedupe_key") @db.VarChar(255)
+
+  // archived_at: set when the user dismisses a notification. Distinct from
+  // read_at on purpose — read means "seen", archived means "no longer in the
+  // inbox" — so dismissing does not have to overwrite when it was read, and the
+  // retention job can keep unread rows while pruning dismissed ones.
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  // idx_user_archived_created: the default inbox list. Leading with user_id and
+  // archived_at narrows the query to one user's live rows instead of scanning the
+  // table, and created_at/id DESC match the newest-first order.
+  //
+  // It does not eliminate the sort: Postgres treats `archived_at IS NULL` as a
+  // filter here rather than an equality scan key, so it bitmap-scans the user's
+  // rows and sorts that slice in memory. Measured on a 30k-row table that sort is
+  // tens of microseconds over tens of rows. Eliminating it would need partial
+  // indexes per list view, which is not worth three extra indexes on the write
+  // path for an inbox that is read a few times per session.
+  @@index([userId, archivedAt, createdAt(sort: Desc), id(sort: Desc)], map: "idx_user_archived_created")
+  // idx_user_read_archived_created: the unread list and the unread count, which are
+  // user_id + read_at IS NULL + archived_at IS NULL. Same narrowing, and because
+  // unread is a small subset the scan is correspondingly tighter.
+  @@index([userId, readAt, archivedAt, createdAt(sort: Desc), id(sort: Desc)], map: "idx_user_read_archived_created")
+  // idx_read_created / idx_archived_created: the retention sweep, which prunes on
+  // read_at IS NOT NULL OR archived_at IS NOT NULL -- either endpoint means the user
+  // has dealt with the row. Each index narrows its own branch and carries
+  // created_at for the cutoff range, and Postgres bitmap-ORs the two.
+  @@index([readAt, createdAt], map: "idx_read_created")
+  @@index([archivedAt, createdAt], map: "idx_archived_created")
   @@index([type], map: "idx_notification_type")
+  // Expressed here rather than as a hand-written partial index so Prisma can
+  // manage it. The cost is that rows with a NULL dedupe_key are indexed too; a
+  // partial index would be smaller, but it is not representable in the schema and
+  // would read as drift on the next migrate diff.
+  @@unique([userId, dedupeKey], map: "uq_notifications_user_dedupe")
   @@map("notifications")
 }

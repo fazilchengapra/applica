@@ -81,6 +81,40 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   into invented categories would put unverifiable labels in user-facing output.
 - Shared `get_user_roles` helper (`user_service`), replacing the role list that
   was duplicated in email login and Google OAuth.
+- `notification_service` notification lifecycle:
+  - **Idempotent creation.** `POST /internal/notifications` accepts an optional
+    `dedupeKey`; `UNIQUE (user_id, dedupe_key)` makes a replay return the
+    existing row with `200` instead of inserting a second one with `201`. Keys
+    are derived from the domain object that caused the event (`"{event}:{token_id}"`,
+    `"{event}:{user_id}"` for welcome), so a replay of one attempt collapses while
+    a legitimate repeat still delivers. Nullable, since btree treats NULLs as
+    distinct. Migrations `20261003090000`, `20261003100000`, `20261003110000`.
+  - **Archive.** `POST /api/v1/notify/{id}/archive/` and `?archived=true` on the
+    list. Archive is separate from `read_at` on purpose — "seen" and "no longer in
+    my inbox" are different intents — so dismissing does not overwrite when, and
+    archived rows leave both the default inbox and the unread count. `read-all`
+    skips them.
+  - **Retention.** A repeatable BullMQ scheduler (`notification-retention-sweep`,
+    default `17 3 * * *`) deletes rows older than
+    `NOTIFICATION_RETENTION_DAYS` (default 30) that are read *or* archived, in
+    batches of 500 ids so no single statement holds locks for long. Unread,
+    unarchived rows are kept indefinitely.
+  - **Account deletion.** `DELETE /internal/users/{user_id}/notifications`
+    hard-deletes a user's rows, batched and idempotent. Needed because
+    `notifications` has no FK to a user table — separate database, nothing
+    cascades. `user_service` now schedules `purge_notifications_task` on
+    deactivation.
+  - **Realtime fan-out.** New `notification:created` Redis channel, so an inbox
+    row created on one replica reaches clients attached to any other; before
+    this, a client only received pushes from the replica that served its write.
+    A deduplicated insert does not re-publish, so a retry cannot double-push.
+    The vestigial pub/sub client duplication was removed at the same time.
+  - List indexes rebuilt around the actual queries (`idx_user_archived_created`,
+    `idx_user_read_archived_created`, plus `idx_read_created` /
+    `idx_archived_created` for retention), replacing the single
+    `idx_user_read_created`.
+  - 31 new Vitest lifecycle cases (74 total) covering dedupe, archive,
+    retention, purge, and Redis fan-out.
 
 ### Changed
 
@@ -115,6 +149,15 @@ All notable changes to this project. Format: [Keep a Changelog](https://keepacha
   was unusable.
 - Kong `internal-secret-auth` hardcoded `notification-dispatcher` as the
   forwarded `X-Internal-Service` value; the caller name is now configurable.
+- `notification_service` image now runs `prisma generate` before compiling.
+  `src/generated/prisma` is gitignored, so a clean checkout had no Prisma client
+  and `tsc` failed with `TS2307` on `generated/prisma/client`; builds only worked
+  when a stale generated client happened to be present in the build context.
+- `purge_notifications_task` logged a failed purge and returned, so a
+  `notification_service` outage left a deactivated account's rows behind with no
+  retry. It now asks for a retry like `revoke_all_tokens_task`, and still gives up
+  quietly once the three attempts are spent — the account is already
+  deactivated, so a cleanup problem must not surface as a failed deactivation.
 
 ## [Earlier revisions]
 

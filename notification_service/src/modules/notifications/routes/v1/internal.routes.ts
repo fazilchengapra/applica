@@ -13,6 +13,15 @@ router.post('/notifications', requireInternalService, notificationController.cre
 
 router.get('/users/:userId/unread-count', requireInternalService, notificationController.getUnreadCountForUser);
 
+// Account deletion. The same capability class as reading another user's count —
+// it names an arbitrary user id and is reached with the shared internal secret —
+// so it sits behind the same check.
+router.delete(
+  '/users/:userId/notifications',
+  requireInternalService,
+  notificationController.purgeNotificationsForUser,
+);
+
 router.post('/dispatch', requireInternalService, handleIncomingEvent);
 
 export default router;

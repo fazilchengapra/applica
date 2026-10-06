@@ -3,7 +3,7 @@ import { logger } from '../../../lib/logger';
 import type { Prisma } from '../../../generated/prisma/client';
 import type { NotificationRecord } from '../repositories/notificationRepository';
 import * as repository from '../repositories/notificationRepository';
-import { emitToUser } from '../../realtime/socket.emitter';
+import { publishNotificationCreated } from '../../realtime/notificationEvent';
 import type { NotificationListQuery } from '../schemas/notification.schema';
 
 export class NotificationNotFoundError extends Error {
@@ -29,6 +29,7 @@ export interface NotificationView {
   metadata: unknown;
   read_at: string | null;
   created_at: string;
+  archived_at: string | null;
 }
 
 export interface PaginatedNotifications {
@@ -47,6 +48,7 @@ function toView(notification: NotificationRecord): NotificationView {
     metadata: notification.metadata,
     read_at: notification.readAt ? notification.readAt.toISOString() : null,
     created_at: notification.createdAt.toISOString(),
+    archived_at: notification.archivedAt ? notification.archivedAt.toISOString() : null,
   };
 }
 
@@ -54,7 +56,11 @@ function toView(notification: NotificationRecord): NotificationView {
  * `next`/`previous` carry the same page size, not the current page number, so
  * following `next` walks the list instead of re-requesting it.
  */
-function buildPageLink(baseUrl: string | undefined, query: NotificationListQuery, page: number): string {
+function buildPageLink(
+  baseUrl: string | undefined,
+  query: NotificationListQuery,
+  page: number,
+): string {
   if (!baseUrl) {
     return '';
   }
@@ -71,6 +77,12 @@ function buildPageLink(baseUrl: string | undefined, query: NotificationListQuery
     url.searchParams.set('type', query.type);
   }
 
+  // An archive page has to keep saying so, or following `next` silently walks
+  // back into the inbox.
+  if (query.archived) {
+    url.searchParams.set('archived', 'true');
+  }
+
   return `${url.pathname}${url.search}`;
 }
 
@@ -79,7 +91,12 @@ export async function listNotifications(
   query: NotificationListQuery,
   baseUrl?: string,
 ): Promise<PaginatedNotifications> {
-  const filter = { userId, unreadOnly: query.unread_only, typeFilter: query.type };
+  const filter = {
+    userId,
+    unreadOnly: query.unread_only,
+    archivedOnly: query.archived,
+    typeFilter: query.type,
+  };
   const count = await repository.countNotifications(filter);
 
   const rows = await repository.listNotifications({
@@ -132,7 +149,33 @@ export async function markRead(userId: number, id: string): Promise<Notification
 export async function markAllRead(userId: number): Promise<{ updated: number }> {
   // One UPDATE whose row count is exactly the number that were still unread, so
   // a notification created mid-call is neither missed nor silently counted.
+  // Archived rows are left alone: dismissed is not unread.
   return { updated: await repository.markAllRead(userId, new Date()) };
+}
+
+/**
+ * Dismisses a notification out of the inbox without claiming it was read. Read and
+ * dismissed are different facts, so this never touches `read_at` and archiving an
+ * unread row does not silently mark it seen.
+ */
+export async function archive(userId: number, id: string): Promise<NotificationView> {
+  const existing = await repository.findOwnedNotification(userId, id);
+
+  if (!existing) {
+    throw new NotificationNotFoundError();
+  }
+
+  // Conditional write, so a retried request keeps the first archived_at.
+  await repository.archiveIfInInbox(userId, id, new Date());
+
+  const updated = await repository.findOwnedNotification(userId, id);
+
+  if (!updated) {
+    // Deleted between the archive and the re-read; nothing left to report.
+    throw new NotificationNotFoundError();
+  }
+
+  return toView(updated);
 }
 
 export async function remove(userId: number, id: string): Promise<void> {
@@ -141,6 +184,39 @@ export async function remove(userId: number, id: string): Promise<void> {
   if (deleted === 0) {
     throw new NotificationNotFoundError();
   }
+}
+
+/** Rows per statement in the two bulk deletes, so neither holds a huge lock set. */
+const BULK_DELETE_BATCH_SIZE = 500;
+
+/**
+ * Drops every notification belonging to a user. Called when the account is
+ * deleted: there is no foreign key to cascade from, because the users live in a
+ * different database, so without this the deleted account's titles, bodies and
+ * masked metadata would sit here indefinitely.
+ */
+export async function purgeForUser(userId: number): Promise<{ deleted: number }> {
+  const deleted = await repository.deleteAllForUser(userId, BULK_DELETE_BATCH_SIZE);
+
+  if (deleted > 0) {
+    logger.info({ userId, deleted }, 'notifications_purged');
+  }
+
+  return { deleted };
+}
+
+export interface CreateNotificationCommand {
+  userId: number;
+  type: string;
+  title: string;
+  body: string;
+  metadata: Prisma.InputJsonObject;
+  dedupeKey?: string;
+}
+
+export interface CreateNotificationResult {
+  notification: NotificationView;
+  deduplicated: boolean;
 }
 
 /**
@@ -152,30 +228,34 @@ export async function remove(userId: number, id: string): Promise<void> {
  * and the client can always recover it by listing the inbox; failing the request
  * instead would make the caller believe nothing was created.
  */
-export async function create(input: {
-  userId: number;
-  type: string;
-  title: string;
-  body: string;
-  metadata: Prisma.InputJsonObject;
-}): Promise<NotificationView> {
+export async function create(input: CreateNotificationCommand): Promise<CreateNotificationResult> {
   if (!KNOWN_NOTIFICATION_TYPES.includes(input.type)) {
     throw new UnknownNotificationTypeError(input.type);
   }
 
-  const created = await repository.createNotification({
-    userId: input.userId,
-    type: input.type,
-    title: input.title,
-    body: input.body,
-    metadata: input.metadata,
-  });
+  const outcome = await repository.createNotification(input);
+  const view = toView(outcome.notification);
 
-  try {
-    emitToUser(String(input.userId), 'notification.created', toView(created));
-  } catch (err) {
-    logger.error({ err, notificationId: created.id, userId: input.userId }, 'notification_push_failed');
+  // Only a genuine insert is a "created" event. A deduplicated retry is the same
+  // row the client has already been told about, so re-announcing it would replay a
+  // notification the client already holds. A client that missed the original push
+  // recovers by listing the inbox, which is the path it already relies on.
+  if (!outcome.deduplicated) {
+    try {
+      // Announced over Redis rather than emitted directly: the socket registry is
+      // per-process, so a direct emit would only reach users connected to *this*
+      // instance. Every instance is subscribed, including this one.
+      await publishNotificationCreated(String(input.userId), view);
+    } catch (err) {
+      // The row is already durable. Failing the request here would tell the
+      // producer nothing was created, which is worse than a client that has to
+      // discover the notification by listing the inbox.
+      logger.error(
+        { err, notificationId: view.id, userId: input.userId },
+        'notification_publish_failed',
+      );
+    }
   }
 
-  return toView(created);
+  return { notification: view, deduplicated: outcome.deduplicated };
 }

@@ -65,6 +65,26 @@ export async function markAllRead(_req: Request, res: Response): Promise<Respons
   return res.status(200).json(await notificationService.markAllRead(res.locals.userId));
 }
 
+/** Dismisses a notification from the inbox. Deliberately does not mark it read. */
+export async function archiveNotification(req: Request, res: Response): Promise<Response> {
+  const params = notificationParamsSchema.safeParse(req.params);
+
+  if (!params.success) {
+    return badRequest(res, params.error);
+  }
+
+  try {
+    return res
+      .status(200)
+      .json(await notificationService.archive(res.locals.userId, params.data.id));
+  } catch (err) {
+    if (err instanceof notificationService.NotificationNotFoundError) {
+      return res.status(404).json({ detail: err.message });
+    }
+    throw err;
+  }
+}
+
 export async function remove(req: Request, res: Response): Promise<Response> {
   const params = notificationParamsSchema.safeParse(req.params);
 
@@ -93,8 +113,11 @@ export async function createNotification(req: Request, res: Response): Promise<R
   }
 
   try {
-    const created = await notificationService.create(parsed.data);
-    return res.status(201).json(created);
+    const result = await notificationService.create(parsed.data);
+    // 200 rather than 201 when the dedupe key matched an existing row: nothing was
+    // created, and a producer that retries after a lost response needs to be able
+    // to tell "your event produced this notification" from "I stored a new one".
+    return res.status(result.deduplicated ? 200 : 201).json(result.notification);
   } catch (err) {
     if (err instanceof notificationService.UnknownNotificationTypeError) {
       log.warn({ type: parsed.data.type }, 'unknown_notification_type');
@@ -122,4 +145,25 @@ export async function getUnreadCountForUser(req: Request, res: Response): Promis
   }
 
   return res.status(200).json(await notificationService.getUnreadCount(params.data.userId));
+}
+
+/**
+ * Purges every notification belonging to a user, for account deletion.
+ *
+ * Same reasoning as the unread-count route above: the caller is a service acting
+ * on someone else's behalf, holding the shared internal secret rather than a user
+ * JWT, so the id is a path parameter behind the internal-secret check rather than
+ * a trusted header.
+ *
+ * Returns the number deleted, so the caller can tell a no-op (the account had no
+ * notifications, or had already been purged) from a real delete.
+ */
+export async function purgeNotificationsForUser(req: Request, res: Response): Promise<Response> {
+  const params = internalUserIdParamsSchema.safeParse(req.params);
+
+  if (!params.success) {
+    return badRequest(res, params.error);
+  }
+
+  return res.status(200).json(await notificationService.purgeForUser(params.data.userId));
 }

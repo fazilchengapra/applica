@@ -6,13 +6,23 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
-def create_and_push(*, user, type: str, title: str, body: str, metadata: dict = None):
+def create_and_push(
+    *, user, type: str, title: str, body: str, metadata: dict = None, dedupe_key: str = None
+):
     """Create an in-app notification in notification_service.
 
     notification_service owns the `notifications` table (it lives in its own
     database, so there is nothing to read or write here). This keeps the
     historical name and signature so the per-event helpers and their
     `transaction.on_commit` call sites are unchanged.
+
+    `dedupe_key` is the stable identity of the logical event, and it is what makes
+    this call safe to retry. Every caller below runs on `transaction.on_commit`,
+    so a request that commits but loses its response can be replayed by the client
+    or by a gateway retry; without a key each replay adds another inbox row and
+    another unread tick. Derive it from the domain object that caused the event —
+    a VerificationToken id, say — not from anything about the notification, since
+    a key that differs between attempts deduplicates nothing.
 
     Realtime fan-out is notification_service's job too: it emits
     `notification.created` to the websocket group after the insert commits, so
@@ -31,6 +41,11 @@ def create_and_push(*, user, type: str, title: str, body: str, metadata: dict = 
         "body": body,
         "metadata": metadata or {},
     }
+    # Omitted rather than sent as null when absent: the receiving schema declares
+    # dedupeKey as optional, and an explicit null would fail validation.
+    if dedupe_key is not None:
+        payload["dedupeKey"] = dedupe_key
+
     url = f"{settings.NOTIFICATION_SERVICE_URL}/api/v1/notifications/internal/notifications"
 
     try:

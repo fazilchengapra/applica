@@ -71,6 +71,10 @@ def verify_phone_change(user, *, old_code: str, new_code: str) -> None:
                 title=data["title"],
                 body=data["body"],
                 metadata=data["metadata"],
+                # new_token is the change attempt this notification reports on. A
+                # later change request mints fresh tokens and so gets its own
+                # notification; replaying this one does not.
+                dedupe_key=f"{data['event']}:{new_token.id}",
             )
         )
 

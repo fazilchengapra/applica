@@ -69,6 +69,10 @@ def verify_phone_otp(user, code: str) -> None:
                 title=data["title"],
                 body=data["body"],
                 metadata=data["metadata"],
+                # Keyed on this verification attempt, not on the user: a resend
+                # mints a new token and so must produce a new notification, while a
+                # replay of *this* attempt must not.
+                dedupe_key=f"{data['event']}:{token.id}",
             )
         )
 

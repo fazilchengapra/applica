@@ -9,4 +9,6 @@ def send_welcome(*, user):
         type=NotificationType.WELCOME,
         title="Welcome to Applica 👋",
         body="Your account is ready. Let's tailor your first resume.",
+        # One welcome per account, so the user id is the whole identity here.
+        dedupe_key=f"{NotificationType.WELCOME}:{user.id}",
     )

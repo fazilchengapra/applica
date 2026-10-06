@@ -6,7 +6,7 @@ export function createServer() {
   const app = createApp();
   const httpServer = http.createServer(app);
 
-  const { webSocketServer, pubClient, subClient, eventSubscriber } = initRealtimeServer(httpServer);
+  const { webSocketServer } = initRealtimeServer(httpServer);
 
-  return { httpServer, webSocketServer, pubClient, subClient, eventSubscriber };
+  return { httpServer, webSocketServer };
 }

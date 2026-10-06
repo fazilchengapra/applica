@@ -36,6 +36,17 @@ export const notificationListQuerySchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((value) => value === 'true'),
+  /**
+   * The inbox and the archive are two views of the same rows rather than one
+   * filtered list, so this is a switch and not an "include" flag: absent means the
+   * inbox (`archived_at IS NULL`), `true` means the archive (`IS NOT NULL`).
+   * There is deliberately no way to ask for both at once — a client that wants the
+   * whole history pages the inbox and then the archive.
+   */
+  archived: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
   type: typeFilterSchema.optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   page_size: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).optional().default(DEFAULT_PAGE_SIZE),
@@ -68,6 +79,17 @@ export const createNotificationBodySchema = z.object({
   // cannot be serialised (undefined, a function, a cycle) has to be rejected at
   // the edge instead of failing the insert deep inside Prisma.
   metadata: z.record(z.string(), z.json()).default({}),
+  /**
+   * Optional stable identity for the logical event, which is what makes a
+   * retried create idempotent instead of a second inbox row. Producers should
+   * derive it from the domain object that caused the event (a verification token
+   * id, say), not from anything about the notification itself — a key that
+   * changes on retry deduplicates nothing.
+   *
+   * Bounded to the column width. Omitting it keeps the old behaviour: every call
+   * inserts.
+   */
+  dedupeKey: z.string().trim().min(1).max(255).optional(),
 });
 
 export type CreateNotificationBody = z.infer<typeof createNotificationBodySchema>;

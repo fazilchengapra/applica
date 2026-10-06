@@ -39,3 +39,20 @@ def test_only_updates_expected_fields(mocker):
     delete_account(user, password=DEFAULT_PASSWORD)
  
     save_spy.assert_called_once_with(update_fields=["is_active", "deactivated_at"])
+
+
+def test_schedules_the_notification_purge(django_capture_on_commit_callbacks, mocker):
+    """Nothing cascades to notification_service, so the purge has to be queued.
+
+    Both hooks are registered on_commit so a rollback cannot notify a user about
+    an account change that never happened.
+    """
+    user = UserFactory()
+    revoke = mocker.patch.object(tasks.revoke_all_tokens_task, "delay")
+    purge = mocker.patch.object(tasks.purge_notifications_task, "delay")
+
+    with django_capture_on_commit_callbacks(execute=True):
+        delete_account(user, password=DEFAULT_PASSWORD)
+
+    revoke.assert_called_once_with(user.id)
+    purge.assert_called_once_with(user.id)

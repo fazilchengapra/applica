@@ -1,0 +1,11 @@
+-- CreateIndex
+--
+-- The retention sweep prunes on `read_at IS NOT NULL OR archived_at IS NOT NULL`,
+-- because either endpoint means the user has dealt with the notification. Keeping
+-- only read rows would strand every notification dismissed without being opened --
+-- never pruned, for exactly the users who dismiss the most.
+--
+-- idx_read_created already covers the first branch; this covers the second, each
+-- carrying created_at so the cutoff is a range rather than a filter. Postgres
+-- bitmap-ORs the two scans, so the sweep never walks the whole table.
+CREATE INDEX "idx_archived_created" ON "notifications"("archived_at", "created_at");

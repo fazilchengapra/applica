@@ -1,9 +1,9 @@
 import type { IncomingMessage, Server as HttpServer } from 'http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
-  createRealtimeAdapterClients,
   createRealtimeEventClients,
   REALTIME_CV_STATUS_CHANNEL,
+  REALTIME_NOTIFICATION_CHANNEL,
 } from '../../config/redis';
 import { addUserSocket, emitToUser, removeUserSocket } from './socket.emitter';
 import { logger } from '../../lib/logger';
@@ -15,10 +15,6 @@ function getUserId(request: IncomingMessage): string | null {
 
 export function initRealtimeServer(httpServer: HttpServer) {
   const webSocketServer = new WebSocketServer({ noServer: true });
-  const { pubClient, subClient } = createRealtimeAdapterClients();
-
-  pubClient.on('error', (err) => logger.error({ err }, 'redis_pub_error'));
-  subClient.on('error', (err) => logger.error({ err }, 'redis_sub_error'));
 
   httpServer.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -41,28 +37,49 @@ export function initRealtimeServer(httpServer: HttpServer) {
 
   const { subscriber } = createRealtimeEventClients();
   subscriber.on('error', (err) => logger.error({ err }, 'redis_event_sub_error'));
-  subscriber.subscribe(REALTIME_CV_STATUS_CHANNEL).catch((err) => {
-    logger.error({ err }, 'redis_event_subscribe_failed');
-  });
+
+  // Both fan-out channels land in the same handler below; the socket registry is
+  // per-process, so subscribing here is what lets a message published by any
+  // instance reach the sockets this instance happens to be holding.
+  const REALTIME_CHANNELS = [REALTIME_CV_STATUS_CHANNEL, REALTIME_NOTIFICATION_CHANNEL];
+
+  subscriber
+    .subscribe(...REALTIME_CHANNELS)
+    .catch((err) => logger.error({ err }, 'redis_event_subscribe_failed'));
+
   subscriber.on('message', (channel, message) => {
-    if (channel !== REALTIME_CV_STATUS_CHANNEL) return;
+    if (!REALTIME_CHANNELS.includes(channel)) return;
 
     try {
       const event = JSON.parse(message) as {
         userId: string;
-        cvId: string;
-        status: string;
+        cvId?: string;
+        status?: string;
+        payload?: unknown;
       };
+
+      if (channel === REALTIME_NOTIFICATION_CHANNEL) {
+        // Carries the already-rendered NotificationView, so this is a hand-off
+        // rather than a database read per connected socket.
+        if (typeof event.userId !== 'string' || event.payload === undefined) {
+          logger.error({ channel }, 'realtime_notification_message_invalid');
+          return;
+        }
+
+        emitToUser(event.userId, 'notification.created', event.payload);
+        return;
+      }
+
       emitToUser(event.userId, 'cv.updated', {
         cv_id: event.cvId,
         status: event.status,
       });
     } catch (err) {
-      logger.error({ err }, 'redis_event_message_invalid');
+      logger.error({ err, channel }, 'redis_event_message_invalid');
     }
   });
 
-  return { webSocketServer, pubClient, subClient, eventSubscriber: subscriber };
+  return { webSocketServer };
 }
 
 function handleConnection(socket: WebSocket, userId: string) {

@@ -7,6 +7,10 @@ COPY package*.json ./
 FROM base AS development
 RUN npm install
 COPY . .
+# src/generated/prisma is gitignored, so a fresh clone has no client until it is
+# generated. Doing it here rather than relying on a stale copy in the build
+# context keeps `npm run dev` working off a clean checkout.
+RUN npx prisma generate
 EXPOSE 8000
 CMD ["npm", "run", "dev"]
 
@@ -14,6 +18,10 @@ CMD ["npm", "run", "dev"]
 FROM base AS build
 RUN npm install
 COPY . .
+# Generated from the schema in this image, not from whatever happened to be in
+# the build context. A stale client would compile against fields that no longer
+# exist in the schema.
+RUN npx prisma generate
 RUN npm run build
 
 # ---- Production ----
