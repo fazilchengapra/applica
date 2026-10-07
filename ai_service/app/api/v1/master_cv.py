@@ -49,7 +49,6 @@ async def upload_master_cv(
 ):
     content = await file.read()
     try:
-        await if_master_cv_exist(current_user_id, session)
         version_id = await process_cv_upload(
             file.filename,
             content,

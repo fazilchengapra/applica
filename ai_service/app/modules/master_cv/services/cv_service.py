@@ -48,18 +48,36 @@ async def process_cv_upload(
     validate_pdf(contents)
     object_key = upload_pdf_to_s3(contents, filename)
 
-    cv_record = MasterCV(
-        user_id=user_id,
+    master_cv = await session.scalar(
+        select(MasterCV).where(MasterCV.user_id == user_id)
     )
 
-    session.add(cv_record)
-
-    # get cv_record.id without committing
-    await session.flush()
+    if master_cv is None:
+        cv_record = MasterCV(
+            user_id=user_id,
+        )
+        session.add(cv_record)
+        await session.flush()
+        master_cv_id = cv_record.id
+        version_number = 1
+    else:
+        master_cv_id = master_cv.id
+        current_version = await session.scalar(
+            select(MasterCVVersion).where(
+                MasterCVVersion.master_cv_id == master_cv_id,
+                MasterCVVersion.is_current.is_(True),
+            )
+        )
+        if current_version:
+            current_version.is_current = False
+            session.add(current_version)
+            version_number = current_version.version + 1
+        else:
+            version_number = 1
 
     version_record = MasterCVVersion(
-        master_cv_id=cv_record.id,
-        version=1,
+        master_cv_id=master_cv_id,
+        version=version_number,
         is_current=True,
         s3_key=object_key,
         status=CVStatus.PENDING,
@@ -69,10 +87,8 @@ async def process_cv_upload(
     session.add(version_record)
 
     await session.commit()
-    await session.refresh(cv_record)
     await session.refresh(version_record)
 
-    print(f"cv  version id is: ${version_record.id} s3_key is {version_record.s3_key}")
     await publish_event(
         event_type="cv.pending",
         user_id=str(user_id),
