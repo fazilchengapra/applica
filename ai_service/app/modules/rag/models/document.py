@@ -3,21 +3,18 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import ENUM, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.modules.rag.constants import AccessLevel, DocType, DocumentStatus
+from app.modules.rag.constants import AccessLevel, DocumentStatus
 
 
 def _enum_values(enum_class) -> list[str]:
     return [member.value for member in enum_class]
 
 
-doc_type_enum = ENUM(
-    DocType, name="document_doc_type", create_type=False, values_callable=_enum_values
-)
 access_level_enum = ENUM(
     AccessLevel,
     name="document_access_level",
@@ -41,7 +38,12 @@ class Document(Base):
         default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
     )
-    doc_type: Mapped[DocType] = mapped_column(doc_type_enum, nullable=False)
+    document_type_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("document_types.id"),
+        nullable=False,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String, nullable=False)
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1"
@@ -64,4 +66,4 @@ class Document(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Document {self.title!r} v{self.version} ({self.doc_type.value})>"
+        return f"<Document {self.title!r} v{self.version}>"

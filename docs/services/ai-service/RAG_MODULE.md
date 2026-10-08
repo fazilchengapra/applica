@@ -509,7 +509,7 @@ Contains the **database model representing a document** (implemented, table `doc
 ```python
 class Document(Base):
     id            # UUID, gen_random_uuid()
-    doc_type      # "financial" | "employee" | "investor" | "policy" | "other"
+    document_type_id  # FK -> document_types.id
     title
     version       # int, default 1
     content_hash  # String(64), SHA-256 of the ingested content
@@ -519,17 +519,16 @@ class Document(Base):
     updated_at
 ```
 
-Enums (`DocType`, `AccessLevel`, `DocumentStatus`) live in `constants.py` as
-`str(Enum)` and are backed by native Postgres enum types
-(`document_doc_type`, `document_access_level`, `document_status`).
-
-This represents information about the document itself.
+Document type is a **relation to the `document_types` catalog**, not a fixed
+enum: `document_type_id` points at a `document_types` row. `AccessLevel` and
+`DocumentStatus` remain `str(Enum)` values in `constants.py` backed by native
+Postgres enum types (`document_access_level`, `document_status`).
 
 Example:
 
 ```text
 id: 4f7a...-9c2d
-doc_type: policy
+document_type_id: <uuid of the 'policy' row in document_types>
 title: Parental Leave Policy
 version: 5
 content_hash: abc123

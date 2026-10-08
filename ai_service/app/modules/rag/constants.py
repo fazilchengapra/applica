@@ -7,14 +7,6 @@ parsing and gives a single file to adjust when a format detail changes.
 import enum
 
 
-class DocType(str, enum.Enum):
-    FINANCIAL = "financial"
-    EMPLOYEE = "employee"
-    INVESTOR = "investor"
-    POLICY = "policy"
-    OTHER = "other"
-
-
 class AccessLevel(str, enum.Enum):
     PUBLIC = "public"
     INTERNAL = "internal"

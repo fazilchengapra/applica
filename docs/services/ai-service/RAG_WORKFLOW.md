@@ -15,7 +15,7 @@ uses — and how all of that keeps the system **cheap to operate**.
 | Chunk hashing (for change detection) | Implemented | `utils/hashing.py`, `services/chunking.py` |
 | Change detection | Designed | `services/change_detection.py` |
 | Embedding + vector store | Designed | `services/embedding.py`, `repositories/vector.py` |
-| Document persistence | Implemented | `models/document.py` (migration `61febb2769c5`) |
+| Document persistence | Implemented | `models/document.py` (migrations `61febb2769c5`, `a509ce0ec26a`) |
 | Chunk persistence | Implemented | `models/chunk.py` (migration `3dd4ffd5e51f`) |
 | Document-type catalog (CRUD) | Implemented | `models/document_type.py`, `repositories/document_type.py`, `api/v1/rag.py` (migration `eabb2273e3b3`) |
 
