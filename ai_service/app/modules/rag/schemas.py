@@ -81,3 +81,24 @@ class QueryEmbeddingResponse(BaseModel):
         ...,
         description="Voyage AI embedding of the query.",
     )
+
+
+class SearchChunk(BaseModel):
+    document_id: UUID
+    doc_type: str
+    access_level: str
+    chunk_index: int
+    content: str
+    score: float = Field(
+        ...,
+        description="Cosine similarity to the query, in [0, 1].",
+    )
+
+
+class SearchResponse(BaseModel):
+    query: str
+    chunks: list[SearchChunk]
+    context: str = Field(
+        ...,
+        description="Top chunks rendered as a single block for generation.",
+    )

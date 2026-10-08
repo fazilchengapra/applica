@@ -15,7 +15,7 @@ uses — and how all of that keeps the system **cheap to operate**.
 | Chunk hashing (for change detection) | Implemented | `utils/hashing.py`, `services/chunking.py` |
 | Change detection | Designed | `services/change_detection.py` |
 | Embedding (Voyage AI, 1024-dim) | Implemented | `services/embedding.py` (reuses `core/embedding_client.py`) |
-| Vector store + retrieval | Designed | `repositories/vector.py` |
+| Vector store + retrieval | Implemented | `repositories/vector.py`, `services/retrieval.py`, `api/v1/rag.py` (`POST /rag/search`) |
 | Document persistence | Implemented | `models/document.py` (migrations `61febb2769c5`, `a509ce0ec26a`) |
 | Chunk persistence | Implemented | `models/chunk.py` (migration `3dd4ffd5e51f`) |
 | Document-type catalog (CRUD) | Implemented | `models/document_type.py`, `repositories/document_type.py`, `api/v1/rag.py` (migration `eabb2273e3b3`) |
@@ -140,7 +140,7 @@ the document so dead chunks stop costing storage and scan time.
 | `POST /rag/load` | `file` + `document_type_id`, `access_level` (form) | **Upload a new document (async)**: validates input, inserts a `processing` row, enqueues `rag.process_document` on Celery/Redis, returns `202` immediately |
 | `POST /rag/documents/{id}/update` | same as above | Incremental re-ingest of one document |
 | `DELETE /rag/documents/{id}` | path `id` | Remove document, chunks and vectors |
-| `POST /rag/search` | `query`, `top_k` | Retrieve matching chunks for a question |
+| `POST /rag/search` | `query`, `top_k` | Embed the query, return the 5 nearest chunks by cosine similarity and a built context block |
 
 Gateway/internal headers required by every `ai_service` route (see
 `app/core/dependencies.py`):

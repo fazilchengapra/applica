@@ -266,6 +266,91 @@ class TestQuery:
         assert "Embedding failed" in response.json()["detail"]
 
 
+class TestSearch:
+    def _chunk(self, index=0, content="refund within 30 days"):
+        return SimpleNamespace(
+            document_id=DOCUMENT_ID,
+            doc_type="policy",
+            access_level="internal",
+            chunk_index=index,
+            content=content,
+        )
+
+    async def test_query_is_embedded_searched_and_context_built(self, client, monkeypatch):
+        _override_user()
+        _override_db()
+        embed_calls = []
+
+        async def _embed(texts):
+            embed_calls.append(list(texts))
+            return [[0.1] * 1024]
+
+        async def _search(db, **kwargs):
+            return [(self._chunk(0), 0.7921), (self._chunk(1, "damaged items are refunded"), 0.618)]
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+        monkeypatch.setattr(rag, "search_chunks", _search)
+
+        response = await client.post(
+            "/api/ai/v1/rag/search",
+            json={"query": "how do i get my money back"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["query"] == "how do i get my money back"
+        assert embed_calls == [["how do i get my money back"]]
+        assert len(body["chunks"]) == 2
+        first = body["chunks"][0]
+        assert first["document_id"] == str(DOCUMENT_ID)
+        assert first["doc_type"] == "policy"
+        assert first["chunk_index"] == 0
+        assert first["score"] == 0.7921
+        assert "[policy | access=internal | #0]" in body["context"]
+        assert "refund within 30 days" in body["context"]
+        assert "damaged items are refunded" in body["context"]
+
+    async def test_embedding_failure_is_a_502(self, client, monkeypatch):
+        _override_user()
+
+        async def _embed(texts):
+            raise RuntimeError("upstream refused")
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+
+        response = await client.post(
+            "/api/ai/v1/rag/search",
+            json={"query": "how do i get my money back"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 502
+        assert "Embedding failed" in response.json()["detail"]
+
+    async def test_search_failure_is_a_500(self, client, monkeypatch):
+        _override_user()
+        _override_db()
+
+        async def _embed(texts):
+            return [[0.1] * 1024]
+
+        async def _boom(db, **kwargs):
+            raise RuntimeError("vector index down")
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+        monkeypatch.setattr(rag, "search_chunks", _boom)
+
+        response = await client.post(
+            "/api/ai/v1/rag/search",
+            json={"query": "how do i get my money back"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 500
+        assert "Search failed" in response.json()["detail"]
+
+
 class TestGatewayGuards:
     async def test_requires_the_gateway_secret(self, client):
         response = await client.post(

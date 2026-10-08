@@ -18,6 +18,7 @@ from app.modules.rag.repositories.document_type import (
     list_document_types,
     update_document_type,
 )
+from app.modules.rag.repositories.vector import search_chunks
 from app.modules.rag.schemas import (
     DocumentEnqueued,
     DocumentTypeCreate,
@@ -25,8 +26,11 @@ from app.modules.rag.schemas import (
     DocumentTypeUpdate,
     QueryEmbeddingResponse,
     QueryRequest,
+    SearchChunk,
+    SearchResponse,
 )
 from app.modules.rag.services.embedding import embed_chunks
+from app.modules.rag.services.retrieval import build_context
 from app.modules.rag.tasks import process_document_task
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
@@ -190,3 +194,54 @@ async def embed_query(
         ) from error
 
     return QueryEmbeddingResponse(query=payload.query, embedding=vectors[0])
+
+
+@router.post(
+    "/search",
+    response_model=SearchResponse,
+    summary="Vector-search the top chunks and build context",
+    responses={
+        502: {"description": "Embedding service failed"},
+        500: {"description": "Vector search failed"},
+    },
+)
+async def search(
+    payload: QueryRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Embed the query, return the 5 nearest chunks and a context block."""
+    try:
+        vectors = await embed_chunks([payload.query])
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Embedding failed: {error}",
+        ) from error
+
+    try:
+        results = await search_chunks(db, embedding=vectors[0], top_k=5)
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Search failed: {error}",
+        ) from error
+
+    chunks = [chunk for chunk, _score in results]
+    context = build_context(chunks)
+
+    return SearchResponse(
+        query=payload.query,
+        chunks=[
+            SearchChunk(
+                document_id=chunk.document_id,
+                doc_type=chunk.doc_type,
+                access_level=chunk.access_level,
+                chunk_index=chunk.chunk_index,
+                content=chunk.content,
+                score=round(score, 4),
+            )
+            for chunk, score in results
+        ],
+        context=context,
+    )
