@@ -8,6 +8,8 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 CHUNK_TOKEN_ENCODING = "o200k_base"
 
+HASH_ALGORITHM = "sha256"
+
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 HTML_SKIPPED_XPATH = "//script|//style|//noscript|//head"

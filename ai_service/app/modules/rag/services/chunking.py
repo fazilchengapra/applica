@@ -16,6 +16,7 @@ from app.modules.rag.constants import (
     CHUNK_TOKEN_ENCODING,
 )
 from app.modules.rag.schemas import DocumentChunk
+from app.modules.rag.utils.hashing import calculate_hash
 
 _SEPARATORS = ["\n\n", "\n", " ", ""]
 
@@ -46,6 +47,7 @@ def split_text(text: str) -> list[DocumentChunk]:
             text=piece,
             characters=len(piece),
             tokens=_count_tokens(piece),
+            content_hash=calculate_hash(piece),
         )
         for index, piece in enumerate(pieces)
     ]

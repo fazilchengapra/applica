@@ -14,6 +14,7 @@ from httpx import ASGITransport
 
 from app.core.config import settings
 from app.main import app
+from app.modules.rag.utils.hashing import calculate_hash
 
 GATEWAY_HEADERS = {
     "X-Gateway-Secret": settings.GATEWAY_INTERNAL_SECRET,
@@ -86,6 +87,7 @@ class TestLoad:
                 "text": "line one\nline two",
                 "characters": 17,
                 "tokens": 5,
+                "content_hash": calculate_hash("line one\nline two"),
             }
         ]
 

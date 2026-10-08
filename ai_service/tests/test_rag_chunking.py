@@ -4,6 +4,7 @@ import tiktoken
 
 from app.modules.rag.constants import CHUNK_OVERLAP, CHUNK_SIZE, CHUNK_TOKEN_ENCODING
 from app.modules.rag.services.chunking import split_text
+from app.modules.rag.utils.hashing import calculate_hash
 
 _encoder = tiktoken.get_encoding(CHUNK_TOKEN_ENCODING)
 
@@ -21,6 +22,7 @@ class TestSplitText:
         assert chunks[0].text == "Just a short note."
         assert chunks[0].characters == len("Just a short note.")
         assert chunks[0].tokens == _tokens("Just a short note.")
+        assert chunks[0].content_hash == calculate_hash("Just a short note.")
 
     def test_long_text_keeps_every_chunk_within_size(self):
         text = ("word " * 5000).strip()
@@ -33,6 +35,19 @@ class TestSplitText:
 
         indices = [chunk.index for chunk in chunks]
         assert indices == list(range(len(chunks)))
+
+    def test_every_chunk_carries_a_stable_content_hash(self):
+        text = " ".join(f"token{i}" for i in range(3000))
+
+        chunks = split_text(text)
+
+        assert all(chunk.content_hash == calculate_hash(chunk.text) for chunk in chunks)
+        assert all(
+            chunk.content_hash != other.content_hash
+            for chunk in chunks
+            for other in chunks
+            if other is not chunk
+        )
 
     def test_consecutive_chunks_overlap(self):
         text = ("word " * 5000).strip()

@@ -10,6 +10,10 @@ class DocumentChunk(BaseModel):
     text: str = Field(..., description="Chunk content.")
     characters: int
     tokens: int = Field(..., description="Token count under the chunking encoding.")
+    content_hash: str = Field(
+        ...,
+        description="Digest of the chunk text, used for change detection.",
+    )
 
 
 class LoadedDocument(BaseModel):

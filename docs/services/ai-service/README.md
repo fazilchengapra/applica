@@ -343,6 +343,8 @@ default queue `ai_service_queue`, broker/backend = Redis (compose: db 1 / db 2).
 - [Setup](./setup.md) — run it locally / via docker
 - [CV Processing](./CV_PROCESSING.md)
 - [Tailoring agents — workflow architecture](./TAILORING_AGENTS.md)
+- [RAG module](./RAG_MODULE.md) — file-by-file responsibilities
+- [RAG ingestion & change-detection workflow](./RAG_WORKFLOW.md) — pipeline, arguments/prompts, change detection, cost reduction
 
 ## Related
 
