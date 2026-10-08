@@ -64,3 +64,20 @@ class DocumentEnqueued(BaseModel):
         ...,
         description="Lifecycle state of the document, e.g. 'processing'.",
     )
+
+
+class QueryRequest(BaseModel):
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="The user's question, e.g. 'how can I use this platform?'.",
+    )
+
+
+class QueryEmbeddingResponse(BaseModel):
+    query: str
+    embedding: list[float] = Field(
+        ...,
+        description="Voyage AI embedding of the query.",
+    )

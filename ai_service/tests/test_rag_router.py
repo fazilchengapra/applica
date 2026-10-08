@@ -225,6 +225,47 @@ class TestLoad:
         assert len(fake_db.deleted) == 1
 
 
+class TestQuery:
+    async def test_query_is_embedded_and_echoed(self, client, monkeypatch):
+        _override_user()
+        called = []
+
+        async def _embed(texts):
+            called.append(list(texts))
+            return [[0.5] * 1024]
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+
+        response = await client.post(
+            "/api/ai/v1/rag/query",
+            json={"query": "how i can use this platform"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["query"] == "how i can use this platform"
+        assert body["embedding"] == [0.5] * 1024
+        assert called == [["how i can use this platform"]]
+
+    async def test_embedding_failure_is_a_502(self, client, monkeypatch):
+        _override_user()
+
+        async def _embed(texts):
+            raise RuntimeError("upstream refused")
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+
+        response = await client.post(
+            "/api/ai/v1/rag/query",
+            json={"query": "how i can use this platform"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 502
+        assert "Embedding failed" in response.json()["detail"]
+
+
 class TestGatewayGuards:
     async def test_requires_the_gateway_secret(self, client):
         response = await client.post(

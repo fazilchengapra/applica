@@ -23,7 +23,10 @@ from app.modules.rag.schemas import (
     DocumentTypeCreate,
     DocumentTypeOut,
     DocumentTypeUpdate,
+    QueryEmbeddingResponse,
+    QueryRequest,
 )
+from app.modules.rag.services.embedding import embed_chunks
 from app.modules.rag.tasks import process_document_task
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
@@ -163,3 +166,27 @@ async def load_document(
         ) from error
 
     return DocumentEnqueued(document_id=document.id, status=document.status.value)
+
+
+@router.post(
+    "/query",
+    response_model=QueryEmbeddingResponse,
+    summary="Embed a user query",
+    responses={
+        502: {"description": "Embedding service failed"},
+    },
+)
+async def embed_query(
+    payload: QueryRequest,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Embed the query and return it with its vector."""
+    try:
+        vectors = await embed_chunks([payload.query])
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Embedding failed: {error}",
+        ) from error
+
+    return QueryEmbeddingResponse(query=payload.query, embedding=vectors[0])
