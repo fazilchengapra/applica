@@ -1,6 +1,9 @@
 """HTTP request/response shapes for the RAG module."""
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DocumentChunk(BaseModel):
@@ -27,3 +30,27 @@ class LoadedDocument(BaseModel):
     lines: int
     chunk_count: int = Field(..., description="Number of chunks split from the text.")
     chunks: list[DocumentChunk]
+
+
+class DocumentTypeCreate(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Business label for the document category, e.g. 'policy'.",
+    )
+    description: str | None = Field(default=None, max_length=255)
+
+
+class DocumentTypeUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    description: str | None = Field(default=None, max_length=255)
+
+
+class DocumentTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: str | None = None
+    created_at: datetime

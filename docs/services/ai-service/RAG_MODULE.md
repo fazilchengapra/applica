@@ -84,12 +84,20 @@ It should **not contain the actual ingestion or chunking logic**.
 Example endpoints:
 
 ```text
+GET    /rag/document-types   (list the doc-type catalog)
+POST   /rag/document-types   (create a doc type)
+PUT    /rag/document-types/{document_type_id} (rename / re-describe a type)
 POST   /rag/load         (parse an upload into the common document format)
 POST   /rag/ingest
 POST   /rag/documents/{document_id}/update
 DELETE /rag/documents/{document_id}
 POST   /rag/search
 ```
+
+Doc types are a **catalog table** (`document_types`), not code, so a business
+can add categories like `shareholder-agreement` without a deploy. The five
+built-ins (`financial`, `employee`, `investor`, `policy`, `other`) are seeded
+by migration `eabb2273e3b3` and managed through the CRUD routes above.
 
 Example:
 
