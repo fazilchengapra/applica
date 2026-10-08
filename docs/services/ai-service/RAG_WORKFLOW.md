@@ -14,7 +14,8 @@ uses — and how all of that keeps the system **cheap to operate**.
 | Chunking (500 tokens, 100 overlap) | Implemented | `services/chunking.py` |
 | Chunk hashing (for change detection) | Implemented | `utils/hashing.py`, `services/chunking.py` |
 | Change detection | Designed | `services/change_detection.py` |
-| Embedding + vector store | Designed | `services/embedding.py`, `repositories/vector.py` |
+| Embedding (Voyage AI, 1024-dim) | Implemented | `services/embedding.py` (reuses `core/embedding_client.py`) |
+| Vector store + retrieval | Designed | `repositories/vector.py` |
 | Document persistence | Implemented | `models/document.py` (migrations `61febb2769c5`, `a509ce0ec26a`) |
 | Chunk persistence | Implemented | `models/chunk.py` (migration `3dd4ffd5e51f`) |
 | Document-type catalog (CRUD) | Implemented | `models/document_type.py`, `repositories/document_type.py`, `api/v1/rag.py` (migration `eabb2273e3b3`) |
@@ -32,7 +33,7 @@ The designed stages are described here so the workflow is complete; the
                           file upload (bytes)
                                 │
                                 ▼
-                POST /api/ai/v1/rag/ingest   (api/v1/rag.py)
+                POST /api/ai/v1/rag/load   (api/v1/rag.py)
                                 │
                                 ▼
                      services/ingestion.py   (orchestrator)
@@ -136,8 +137,8 @@ the document so dead chunks stop costing storage and scan time.
 
 | Endpoint | Arguments | Meaning |
 |---|---|---|
-| `POST /rag/load` | `file` (multipart `UploadFile`) | Current dev entry point: load + chunk, returns the common format with chunks |
-| `POST /rag/ingest` (designed) | `document_id`, `source`, `content` (or `file`) | Full pipeline incl. metadata persistence |
+| `POST /rag/load` | `file` + `document_type_id`, `access_level` (form) | **Upload a new document**: load + chunk + **embed (Voyage AI)** + persist `documents`/`chunks` |
+| `POST /rag/documents/{id}/update` | same as above | Incremental re-ingest of one document |
 | `POST /rag/documents/{id}/update` | same as ingest | Incremental re-ingest of one document |
 | `DELETE /rag/documents/{id}` | path `id` | Remove document, chunks and vectors |
 | `POST /rag/search` | `query`, `top_k` | Retrieve matching chunks for a question |
@@ -148,10 +149,10 @@ Gateway/internal headers required by every `ai_service` route (see
 - `X-Gateway-Secret` — proves the request came through Kong; missing → `403`.
 - `X-User-Id` — the authenticated user id; missing → `422`.
 
-Example request/response contract (ingest, designed shape from `RAG_MODULE.md`):
+Example request/response contract (designed update shape):
 
 ```jsonc
-POST /rag/ingest
+POST /rag/documents/{id}/update
 {
   "document_id": "policy-001",
   "source": "s3://documents/policy.pdf",

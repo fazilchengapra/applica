@@ -54,3 +54,16 @@ class DocumentTypeOut(BaseModel):
     name: str
     description: str | None = None
     created_at: datetime
+
+
+class IngestResponse(BaseModel):
+    id: UUID
+    document_type_id: UUID
+    doc_type: str = Field(..., description="Denormalized document type name.")
+    title: str
+    version: int
+    access_level: str
+    status: str
+    content_hash: str
+    chunk_count: int = Field(..., description="Number of chunks embedded and stored.")
+    created_at: datetime

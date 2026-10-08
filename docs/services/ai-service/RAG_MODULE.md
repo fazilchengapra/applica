@@ -87,8 +87,7 @@ Example endpoints:
 GET    /rag/document-types   (list the doc-type catalog)
 POST   /rag/document-types   (create a doc type)
 PUT    /rag/document-types/{document_type_id} (rename / re-describe a type)
-POST   /rag/load         (parse an upload into the common document format)
-POST   /rag/ingest
+POST   /rag/load         (upload a new doc: load → chunk → embed → persist)
 POST   /rag/documents/{document_id}/update
 DELETE /rag/documents/{document_id}
 POST   /rag/search
