@@ -4,6 +4,30 @@ Collecting the literals in one place keeps every loader focused on
 parsing and gives a single file to adjust when a format detail changes.
 """
 
+import enum
+
+
+class DocType(str, enum.Enum):
+    FINANCIAL = "financial"
+    EMPLOYEE = "employee"
+    INVESTOR = "investor"
+    POLICY = "policy"
+    OTHER = "other"
+
+
+class AccessLevel(str, enum.Enum):
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    RESTRICTED = "restricted"
+
+
+class DocumentStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 CHUNK_TOKEN_ENCODING = "o200k_base"

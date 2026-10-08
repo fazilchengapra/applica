@@ -496,29 +496,36 @@ instead of changing the entire RAG module.
 
 ### Responsibility
 
-Contains the **database model representing a document**.
-
-Example:
+Contains the **database model representing a document** (implemented, table `documents`):
 
 ```python
 class Document(Base):
-    id
-    source
-    version
-    content_hash
-    status
+    id            # UUID, gen_random_uuid()
+    doc_type      # "financial" | "employee" | "investor" | "policy" | "other"
+    title
+    version       # int, default 1
+    content_hash  # String(64), SHA-256 of the ingested content
+    access_level  # "public" | "internal" | "restricted"
+    status        # "pending" | "processing" | "completed" | "failed"
     created_at
     updated_at
 ```
+
+Enums (`DocType`, `AccessLevel`, `DocumentStatus`) live in `constants.py` as
+`str(Enum)` and are backed by native Postgres enum types
+(`document_doc_type`, `document_access_level`, `document_status`).
 
 This represents information about the document itself.
 
 Example:
 
 ```text
-document_id: policy-001
+id: 4f7a...-9c2d
+doc_type: policy
+title: Parental Leave Policy
 version: 5
 content_hash: abc123
+access_level: internal
 status: completed
 ```
 

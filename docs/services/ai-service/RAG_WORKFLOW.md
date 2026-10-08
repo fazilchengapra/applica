@@ -15,7 +15,8 @@ uses — and how all of that keeps the system **cheap to operate**.
 | Chunk hashing (for change detection) | Implemented | `utils/hashing.py`, `services/chunking.py` |
 | Change detection | Designed | `services/change_detection.py` |
 | Embedding + vector store | Designed | `services/embedding.py`, `repositories/vector.py` |
-| Document/chunk persistence | Designed | `models/`, `repositories/` |
+| Document persistence | Implemented | `models/document.py` (migration `61febb2769c5`) |
+| Chunk persistence | Designed | `repositories/chunk.py` |
 
 The designed stages are described here so the workflow is complete; the
 "implemented" stages exist today.
