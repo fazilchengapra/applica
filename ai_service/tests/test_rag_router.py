@@ -225,47 +225,6 @@ class TestLoad:
         assert len(fake_db.deleted) == 1
 
 
-class TestQuery:
-    async def test_query_is_embedded_and_echoed(self, client, monkeypatch):
-        _override_user()
-        called = []
-
-        async def _embed(texts):
-            called.append(list(texts))
-            return [[0.5] * 1024]
-
-        monkeypatch.setattr(rag, "embed_chunks", _embed)
-
-        response = await client.post(
-            "/api/ai/v1/rag/query",
-            json={"query": "how i can use this platform"},
-            headers=GATEWAY_HEADERS,
-        )
-
-        assert response.status_code == 200
-        body = response.json()
-        assert body["query"] == "how i can use this platform"
-        assert body["embedding"] == [0.5] * 1024
-        assert called == [["how i can use this platform"]]
-
-    async def test_embedding_failure_is_a_502(self, client, monkeypatch):
-        _override_user()
-
-        async def _embed(texts):
-            raise RuntimeError("upstream refused")
-
-        monkeypatch.setattr(rag, "embed_chunks", _embed)
-
-        response = await client.post(
-            "/api/ai/v1/rag/query",
-            json={"query": "how i can use this platform"},
-            headers=GATEWAY_HEADERS,
-        )
-
-        assert response.status_code == 502
-        assert "Embedding failed" in response.json()["detail"]
-
-
 class TestSearch:
     def _chunk(self, index=0, content="refund within 30 days"):
         return SimpleNamespace(
@@ -288,8 +247,15 @@ class TestSearch:
         async def _search(db, **kwargs):
             return [(self._chunk(0), 0.7921), (self._chunk(1, "damaged items are refunded"), 0.618)]
 
+        async def _generate(query, context):
+            assert "[policy | access=internal | #0]" in context
+            assert "refund within 30 days" in context
+            assert "damaged items are refunded" in context
+            return "You can get a full refund within 30 days of purchase."
+
         monkeypatch.setattr(rag, "embed_chunks", _embed)
         monkeypatch.setattr(rag, "search_chunks", _search)
+        monkeypatch.setattr(rag, "generate_answer", _generate)
 
         response = await client.post(
             "/api/ai/v1/rag/search",
@@ -307,9 +273,8 @@ class TestSearch:
         assert first["doc_type"] == "policy"
         assert first["chunk_index"] == 0
         assert first["score"] == 0.7921
-        assert "[policy | access=internal | #0]" in body["context"]
-        assert "refund within 30 days" in body["context"]
-        assert "damaged items are refunded" in body["context"]
+        assert "context" not in body
+        assert body["answer"] == "You can get a full refund within 30 days of purchase."
 
     async def test_embedding_failure_is_a_502(self, client, monkeypatch):
         _override_user()
@@ -349,6 +314,32 @@ class TestSearch:
 
         assert response.status_code == 500
         assert "Search failed" in response.json()["detail"]
+
+    async def test_generation_failure_is_a_502(self, client, monkeypatch):
+        _override_user()
+        _override_db()
+
+        async def _embed(texts):
+            return [[0.1] * 1024]
+
+        async def _search(db, **kwargs):
+            return [(self._chunk(0), 0.7921)]
+
+        async def _boom(query, context):
+            raise RuntimeError("openrouter refused")
+
+        monkeypatch.setattr(rag, "embed_chunks", _embed)
+        monkeypatch.setattr(rag, "search_chunks", _search)
+        monkeypatch.setattr(rag, "generate_answer", _boom)
+
+        response = await client.post(
+            "/api/ai/v1/rag/search",
+            json={"query": "how do i get my money back"},
+            headers=GATEWAY_HEADERS,
+        )
+
+        assert response.status_code == 502
+        assert "Answer generation failed" in response.json()["detail"]
 
 
 class TestGatewayGuards:

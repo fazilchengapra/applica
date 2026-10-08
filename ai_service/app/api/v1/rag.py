@@ -24,12 +24,12 @@ from app.modules.rag.schemas import (
     DocumentTypeCreate,
     DocumentTypeOut,
     DocumentTypeUpdate,
-    QueryEmbeddingResponse,
     QueryRequest,
     SearchChunk,
     SearchResponse,
 )
 from app.modules.rag.services.embedding import embed_chunks
+from app.modules.rag.services.generation import generate_answer
 from app.modules.rag.services.retrieval import build_context
 from app.modules.rag.tasks import process_document_task
 
@@ -173,35 +173,11 @@ async def load_document(
 
 
 @router.post(
-    "/query",
-    response_model=QueryEmbeddingResponse,
-    summary="Embed a user query",
-    responses={
-        502: {"description": "Embedding service failed"},
-    },
-)
-async def embed_query(
-    payload: QueryRequest,
-    user_id: int = Depends(get_current_user_id),
-):
-    """Embed the query and return it with its vector."""
-    try:
-        vectors = await embed_chunks([payload.query])
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Embedding failed: {error}",
-        ) from error
-
-    return QueryEmbeddingResponse(query=payload.query, embedding=vectors[0])
-
-
-@router.post(
     "/search",
     response_model=SearchResponse,
-    summary="Vector-search the top chunks and build context",
+    summary="Vector-search the top chunks, build context, and answer",
     responses={
-        502: {"description": "Embedding service failed"},
+        502: {"description": "Embedding or answer generation failed"},
         500: {"description": "Vector search failed"},
     },
 )
@@ -210,7 +186,7 @@ async def search(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Embed the query, return the 5 nearest chunks and a context block."""
+    """Embed the query, retrieve the 5 nearest chunks, and answer from their context."""
     try:
         vectors = await embed_chunks([payload.query])
     except Exception as error:
@@ -230,18 +206,15 @@ async def search(
     chunks = [chunk for chunk, _score in results]
     context = build_context(chunks)
 
+    try:
+        answer = await generate_answer(payload.query, context)
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Answer generation failed: {error}",
+        ) from error
+
     return SearchResponse(
         query=payload.query,
-        chunks=[
-            SearchChunk(
-                document_id=chunk.document_id,
-                doc_type=chunk.doc_type,
-                access_level=chunk.access_level,
-                chunk_index=chunk.chunk_index,
-                content=chunk.content,
-                score=round(score, 4),
-            )
-            for chunk, score in results
-        ],
-        context=context,
+        answer=answer,
     )

@@ -75,14 +75,6 @@ class QueryRequest(BaseModel):
     )
 
 
-class QueryEmbeddingResponse(BaseModel):
-    query: str
-    embedding: list[float] = Field(
-        ...,
-        description="Voyage AI embedding of the query.",
-    )
-
-
 class SearchChunk(BaseModel):
     document_id: UUID
     doc_type: str
@@ -97,8 +89,7 @@ class SearchChunk(BaseModel):
 
 class SearchResponse(BaseModel):
     query: str
-    chunks: list[SearchChunk]
-    context: str = Field(
+    answer: str = Field(
         ...,
-        description="Top chunks rendered as a single block for generation.",
+        description="LLM answer grounded in the retrieved chunks.",
     )

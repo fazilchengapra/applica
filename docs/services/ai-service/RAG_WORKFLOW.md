@@ -140,7 +140,7 @@ the document so dead chunks stop costing storage and scan time.
 | `POST /rag/load` | `file` + `document_type_id`, `access_level` (form) | **Upload a new document (async)**: validates input, inserts a `processing` row, enqueues `rag.process_document` on Celery/Redis, returns `202` immediately |
 | `POST /rag/documents/{id}/update` | same as above | Incremental re-ingest of one document |
 | `DELETE /rag/documents/{id}` | path `id` | Remove document, chunks and vectors |
-| `POST /rag/search` | `query`, `top_k` | Embed the query, return the 5 nearest chunks by cosine similarity and a built context block |
+| `POST /rag/search` | `query`, `top_k` | Embed the query, return the 5 nearest chunks by cosine similarity, build a context block, and return an LLM-grounded `answer` (`gpt-4o-mini` via OpenRouter) |
 
 Gateway/internal headers required by every `ai_service` route (see
 `app/core/dependencies.py`):
