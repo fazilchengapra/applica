@@ -6,4 +6,4 @@ from app.modules.companies.models import Company
 from app.modules.cv_template import models
 from app.modules.tailoring import models
 from app.modules.ats.models import ATSReport, RoleVocabulary
-from app.modules.rag.models import Document, DocumentType
+from app.modules.rag.models import Chunk, Document, DocumentType

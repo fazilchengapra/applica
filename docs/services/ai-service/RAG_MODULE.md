@@ -543,23 +543,27 @@ status: completed
 
 ### Responsibility
 
-Contains the database model representing an individual chunk.
-
-Example:
+Contains the **database model representing an individual chunk** (implemented, table `chunks`):
 
 ```python
 class Chunk(Base):
-    id
-    document_id
+    id            # UUID, gen_random_uuid()
+    document_id   # FK -> documents.id, ON DELETE CASCADE
+    doc_type      # denormalized from the document (row-level scoping)
+    access_level  # denormalized (public | internal | restricted)
     section_id
-    content
-    content_hash
+    heading_path
     chunk_index
-    vector_id
-    version
+    content
+    content_hash  # String(64), SHA-256 of the chunk text
+    embedding     # pgvector Vector(1024), nullable until embedded
     created_at
     updated_at
 ```
+
+Chunks are keyed by `(document_id, chunk_index)` (unique) and `doc_type` /
+`access_level` are denormalized so retrieval can filter by type and privilege
+without a join to `documents`.
 
 Example:
 

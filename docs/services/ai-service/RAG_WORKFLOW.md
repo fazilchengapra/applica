@@ -16,8 +16,8 @@ uses — and how all of that keeps the system **cheap to operate**.
 | Change detection | Designed | `services/change_detection.py` |
 | Embedding + vector store | Designed | `services/embedding.py`, `repositories/vector.py` |
 | Document persistence | Implemented | `models/document.py` (migration `61febb2769c5`) |
+| Chunk persistence | Implemented | `models/chunk.py` (migration `3dd4ffd5e51f`) |
 | Document-type catalog (CRUD) | Implemented | `models/document_type.py`, `repositories/document_type.py`, `api/v1/rag.py` (migration `eabb2273e3b3`) |
-| Chunk persistence | Designed | `repositories/chunk.py` |
 
 The designed stages are described here so the workflow is complete; the
 "implemented" stages exist today.
