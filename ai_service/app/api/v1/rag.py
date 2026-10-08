@@ -1,3 +1,4 @@
+import base64
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -10,22 +11,20 @@ from app.modules.rag.exceptions import (
     DocumentTypeNameTakenError,
     DocumentTypeNotFoundError,
 )
-from app.modules.rag.repositories.chunk import save_document_with_chunks
+from app.modules.rag.loaders import get_loader
+from app.modules.rag.repositories.document import create_document
 from app.modules.rag.repositories.document_type import (
     create_document_type,
-    get_document_type,
     list_document_types,
     update_document_type,
 )
 from app.modules.rag.schemas import (
+    DocumentEnqueued,
     DocumentTypeCreate,
     DocumentTypeOut,
     DocumentTypeUpdate,
-    IngestResponse,
 )
-from app.modules.rag.services.embedding import embed_chunks
-from app.modules.rag.services.ingestion import process_upload
-from app.modules.rag.utils.hashing import calculate_hash
+from app.modules.rag.tasks import process_document_task
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 
@@ -96,14 +95,14 @@ async def update_type(
 
 @router.post(
     "/load",
-    response_model=IngestResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Upload a document: load, chunk, embed and persist it",
+    response_model=DocumentEnqueued,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Upload a document for asynchronous processing",
     responses={
-        400: {"description": "Unsupported file type or unparseable content"},
+        400: {"description": "Unsupported file type"},
         404: {"description": "Document type not found"},
         422: {"description": "Invalid access level"},
-        502: {"description": "Embedding service failed"},
+        503: {"description": "Could not enqueue the processing job"},
     },
 )
 async def load_document(
@@ -114,17 +113,18 @@ async def load_document(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    """Accept the upload, queue it and return 202 immediately.
+
+    Load, chunk, embed and persist all happen in the Celery task
+    ``rag.process_document``. The returned ``document_id`` tracks the row's
+    status as it moves ``processing`` -> ``completed``/``failed``.
+    """
     data = await file.read()
 
     try:
-        loaded = process_upload(file.filename, file.content_type, data)
+        get_loader(file.filename, file.content_type)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to parse file: {error}",
-        ) from error
 
     try:
         access_level_value = AccessLevel(access_level)
@@ -136,45 +136,30 @@ async def load_document(
         ) from None
 
     try:
-        embeddings = await embed_chunks([chunk.text for chunk in loaded.chunks])
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Embedding failed: {error}",
-        ) from error
-
-    if len(embeddings) != loaded.chunk_count:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Embedding count mismatch: got {len(embeddings)}, "
-            f"expected {loaded.chunk_count}",
-        )
-
-    try:
-        document = await save_document_with_chunks(
+        document = await create_document(
             db,
             document_type_id=document_type_id,
             title=title or file.filename or "untitled",
             access_level=access_level_value,
-            content_hash=calculate_hash(loaded.text),
-            chunks=loaded.chunks,
-            embeddings=embeddings,
         )
     except DocumentTypeNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
-    document_type = await get_document_type(db, document_type_id)
-    return IngestResponse(
-        id=document.id,
-        document_type_id=document.document_type_id,
-        doc_type=document_type.name,
-        title=document.title,
-        version=document.version,
-        access_level=document.access_level.value,
-        status=document.status.value,
-        content_hash=document.content_hash,
-        chunk_count=loaded.chunk_count,
-        created_at=document.created_at,
-    )
+    try:
+        process_document_task.delay(
+            str(document.id),
+            base64.b64encode(data).decode("ascii"),
+            file.filename or "",
+            file.content_type,
+        )
+    except Exception as error:
+        await db.delete(document)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not enqueue processing job: {error}",
+        ) from error
+
+    return DocumentEnqueued(document_id=document.id, status=document.status.value)

@@ -34,24 +34,24 @@ The designed stages are described here so the workflow is complete; the
                                 │
                                 ▼
                 POST /api/ai/v1/rag/load   (api/v1/rag.py)
-                                │
-                                ▼
-                     services/ingestion.py   (orchestrator)
-                                │
-        ┌───────────────────────┼──────────────────────────┐
-        ▼                       ▼                          ▼
-   loaders/factory        change_detection.py         embedding.py
-   pdf/docx/html/txt      hash old vs new,            chunk text →
-   → plain text           classify NEW/UNCHANGED/     embedding vector
-        │                 MODIFIED/DELETED                 │
-        │                       │                          │
-        ▼                       ▼                          ▼
-   services/chunking.py   repositories/chunk.py     repositories/vector.py
-   500 tokens, 100        chunk metadata (DB        upsert / delete /
-   overlap                hash, index, version)     search (vector DB)
-                                │                          │
-                                ▼                          ▼
-                           PostgreSQL                  Vector database
+                validates loader + access_level,
+                inserts a "processing" row, then
+                │
+                ▼
+     rag.process_document  (Celery task, tasks.py)
+                │            ┌─ broker: Redis (ai_service_queue)
+                │            └─ runs load → chunk → embed → persist
+                ▼
+                     services/ingestion.py      embedding.py
+                    load + chunk (500 tokens,   chunk text → 1024-dim
+                    100 overlap)                Voyage AI vector
+                            │                       │
+                            ▼                       ▼
+                     repositories/chunk.py   document → completed /
+                        persist chunks        failed
+                            │
+                            ▼
+                       PostgreSQL (documents + chunks)
 ```
 
 ### 1.2 Orchestrator steps
@@ -137,9 +137,8 @@ the document so dead chunks stop costing storage and scan time.
 
 | Endpoint | Arguments | Meaning |
 |---|---|---|
-| `POST /rag/load` | `file` + `document_type_id`, `access_level` (form) | **Upload a new document**: load + chunk + **embed (Voyage AI)** + persist `documents`/`chunks` |
+| `POST /rag/load` | `file` + `document_type_id`, `access_level` (form) | **Upload a new document (async)**: validates input, inserts a `processing` row, enqueues `rag.process_document` on Celery/Redis, returns `202` immediately |
 | `POST /rag/documents/{id}/update` | same as above | Incremental re-ingest of one document |
-| `POST /rag/documents/{id}/update` | same as ingest | Incremental re-ingest of one document |
 | `DELETE /rag/documents/{id}` | path `id` | Remove document, chunks and vectors |
 | `POST /rag/search` | `query`, `top_k` | Retrieve matching chunks for a question |
 
@@ -149,7 +148,29 @@ Gateway/internal headers required by every `ai_service` route (see
 - `X-Gateway-Secret` — proves the request came through Kong; missing → `403`.
 - `X-User-Id` — the authenticated user id; missing → `422`.
 
-Example request/response contract (designed update shape):
+Example request/response contract (implemented, async):
+
+```jsonc
+POST /rag/load
+multipart/form-data:
+  file:              <bytes>
+  document_type_id:  "9cee2794-face-4f54-a3ab-c02dff790153"   // from /rag/document-types
+  access_level:      "internal"        // public | internal | restricted
+  title:             "Async Smoke Policy"   // optional; defaults to the file name
+
+// 202 Accepted (immediately; the upload is queued)
+{
+  "document_id": "efa80c53-c16e-40ad-8895-63d125dba6c7",
+  "status": "processing"            // processing | completed | failed
+}
+```
+
+The background task `app/modules/rag/tasks.py::process_document_task` then runs
+load → chunk → embed (Voyage AI) → persist, and flips `documents.status` to
+`completed` (with `content_hash` filled) or `failed`. The client polls the
+document (via a future `GET /rag/documents/{id}`) to observe the transition.
+
+Designed update shape (not yet implemented):
 
 ```jsonc
 POST /rag/documents/{id}/update
@@ -164,24 +185,6 @@ POST /rag/documents/{id}/update
   "document_id": "policy-001",
   "status": "completed",            // processing | completed | failed
   "chunks_processed": 42            // number actually embedded this run
-}
-```
-
-The load endpoint (implemented) returns the common format plus chunks:
-
-```jsonc
-{
-  "filename": "policy.pdf",
-  "content_type": "application/pdf",
-  "loader": "PdfLoader",
-  "text": "<full extracted text>",
-  "characters": 12345,
-  "lines": 300,
-  "chunk_count": 24,
-  "chunks": [
-    { "index": 0, "text": "...", "characters": 1800, "tokens": 490,
-      "content_hash": "9b74c989..." }
-  ]
 }
 ```
 

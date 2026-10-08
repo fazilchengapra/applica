@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.modules.matching.tasks",
         "app.modules.cv_template.tasks",
         "app.modules.cv_render.tasks",
+        "app.modules.rag.tasks",
         "app.modules.tailoring.tasks",
         "app.modules.tailoring.tasks.strategize_task",
     ],

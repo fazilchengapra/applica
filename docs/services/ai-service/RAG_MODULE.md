@@ -87,8 +87,9 @@ Example endpoints:
 GET    /rag/document-types   (list the doc-type catalog)
 POST   /rag/document-types   (create a doc type)
 PUT    /rag/document-types/{document_type_id} (rename / re-describe a type)
-POST   /rag/load         (upload a new doc: load → chunk → embed → persist)
-POST   /rag/documents/{document_id}/update
+POST   /rag/load         (async upload: enqueue rag.process_document, 202)
+                    GET    /rag/documents/{id}  (poll status; designed)
+                    POST   /rag/documents/{document_id}/update
 DELETE /rag/documents/{document_id}
 POST   /rag/search
 ```
@@ -101,9 +102,16 @@ by migration `eabb2273e3b3` and managed through the CRUD routes above.
 Example:
 
 ```python
-@router.post("/ingest")
-async def ingest_document(request: IngestRequest):
-    return await ingestion_service.ingest(request)
+@router.post("/load", response_model=DocumentEnqueued, status_code=202)
+async def load_document(
+    file: UploadFile = File(...),
+    document_type_id: UUID = Form(...),
+    access_level: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    document = await create_document(db, ...)      # status="processing"
+    process_document_task.delay(...)                # Celery/Redis
+    return DocumentEnqueued(document_id=document.id, status=document.status.value)
 ```
 
 ### Think of it as
@@ -129,19 +137,19 @@ It defines what data the API accepts and returns.
 Example:
 
 ```python
-class IngestRequest(BaseModel):
-    document_id: str
-    source: str
-    content: str
+class DocumentEnqueued(BaseModel):
+    document_id: UUID
+    status: str   # "processing"
 ```
 
 Response:
 
 ```python
-class IngestResponse(BaseModel):
-    document_id: str
-    status: str
-    chunks_processed: int
+202 Accepted
+{
+  "document_id": "efa80c53-c16e-40ad-8895-63d125dba6c7",
+  "status": "processing"
+}
 ```
 
 ### Think of it as

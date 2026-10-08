@@ -56,14 +56,11 @@ class DocumentTypeOut(BaseModel):
     created_at: datetime
 
 
-class IngestResponse(BaseModel):
-    id: UUID
-    document_type_id: UUID
-    doc_type: str = Field(..., description="Denormalized document type name.")
-    title: str
-    version: int
-    access_level: str
-    status: str
-    content_hash: str
-    chunk_count: int = Field(..., description="Number of chunks embedded and stored.")
-    created_at: datetime
+class DocumentEnqueued(BaseModel):
+    """Response for an accepted upload: the document was queued for processing."""
+
+    document_id: UUID
+    status: str = Field(
+        ...,
+        description="Lifecycle state of the document, e.g. 'processing'.",
+    )
